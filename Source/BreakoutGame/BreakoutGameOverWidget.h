@@ -6,7 +6,7 @@
 
 class UTextBlock;
 
-// 「GameOver!」を出す（スライドの GameOverWidget）
+// 「GameOver!」を出し、白から赤へ変える（スライドの GameOverWidget / GameOverAnimation）
 UCLASS()
 class BREAKOUTGAME_API UBreakoutGameOverWidget : public UUserWidget
 {
@@ -14,7 +14,17 @@ class BREAKOUTGAME_API UBreakoutGameOverWidget : public UUserWidget
 
 protected:
 	virtual TSharedRef<SWidget> RebuildWidget() override;
+	virtual void NativeTick(const FGeometry& MyGeometry, float InDeltaTime) override;
 
 	UPROPERTY()
 	TObjectPtr<UTextBlock> GameOverBox;
+
+	UPROPERTY()
+	TObjectPtr<UTextBlock> PushSpaceTextBox;
+
+	// 白→赤にかける秒数
+	UPROPERTY(EditAnywhere, Category = "Animation")
+	float ColorDuration = 2.0f;
+
+	float Elapsed = 0.0f;
 };

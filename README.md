@@ -11,6 +11,7 @@ ND1 ブロック崩し（Unreal Engine 5.8）。
 | キー | 動作 |
 |---|---|
 | A / D | パドルを左右に移動 |
+| Space | ボール発射（ゲームオーバー後はやり直し） |
 
 ## 01_01 PaddleとBallの作成
 
@@ -31,3 +32,12 @@ ND1 ブロック崩し（Unreal Engine 5.8）。
 - PrintString の代わりに `UE_LOG` を使用
 - 録画：`-automiss` を付けるとパドルがボールの着地点から逃げてミスを再現。`-uiframes`（GameMode）は UMG が写る録画用で、`record.ps1 -Capture "-uiframes"` で使う（`-dumpmovie` は UI を写さない）
 - スクリプトは PowerShell 7（`pwsh -File ...`）で実行すること（Windows PowerShell 5.1 だと日本語コメントで param が壊れる）
+
+## 01_03 リスポーン・残ボール・リセット
+
+- ボールはレベルに置かず、GameManager が `SpawnBall` で生成（`RespawnLocationActor`＝TargetPoint (0,0,1000) の位置。`SpawnLocationActor` にインスタンスで指定）
+- 同時に1個まで（`bIsBallSpawned`）、残り `LeftBallNum`（既定3）。発射のたびに1減る
+- Space（`IA_Action`、`IMC_InGame` に追加）を Paddle が `Started` で受けて `GameManager->Action()`。ゲームオーバーなら `LevelReset`（現在のレベルを再読込）、それ以外は `SpawnBall`
+- 残り0でミスすると GameOver（白→赤を2秒）と「Push SPACE to Restart」を表示
+- 左上の「LeftBall : n」は `UBreakoutGameInfoWidget`。スライドではレベルブループリントの BeginPlay で作っていたが、C++ ではレベルBPを使わず GameManager の BeginPlay で作成。Text のバインドは NativeTick で毎フレーム更新して同等にしている
+- 録画：`-automiss` でボールを3回ミス → ゲームオーバー → 自動で Space を押して再開

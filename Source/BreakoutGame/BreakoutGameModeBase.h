@@ -20,5 +20,4 @@ protected:
 
 	// 録画用（起動オプション -uiframes）。UMG も写るように毎フレーム画面を保存する
 	bool bUiFrames = false;
-	int32 UiFrameIndex = 0;
 };

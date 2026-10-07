@@ -8,6 +8,7 @@
 class UStaticMeshComponent;
 class UInputAction;
 class UInputMappingContext;
+class ABreakoutGameManager;
 
 // プレイヤーが操作するパドル（スライドの「Paddle」）。BP の Paddle はこのクラスの子。
 UCLASS()
@@ -31,6 +32,13 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Input")
 	TObjectPtr<UInputAction> MoveAction;
 
+	// Space キー（ボール発射・やり直し）
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Input")
+	TObjectPtr<UInputAction> ActionAction;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Paddle")
+	TObjectPtr<ABreakoutGameManager> GameManager;
+
 	virtual void Tick(float DeltaSeconds) override;
 
 protected:
@@ -38,12 +46,15 @@ protected:
 	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
 
 	void Move(const FInputActionValue& Value);
+	void Action(const FInputActionValue& Value);
 
 	// 録画用の自動操作（起動オプション -autoplay）。ボールを追いかけて打ち返す
 	bool bAutoPlay = false;
 	// -automiss: わざとボールから逃げる（ミスのデモ用）
 	bool bAutoMiss = false;
 	float MissTargetY = 0.0f;
+	// ボールがない時間（自動で Space を押す用）
+	float IdleTime = 0.0f;
 	float AutoAimOffset = 0.0f;
 	void UpdateAutoPlay(float DeltaSeconds);
 

@@ -9,6 +9,8 @@
 #include "GameFramework/PlayerController.h"
 #include "UObject/ConstructorHelpers.h"
 #include "BreakoutBall.h"
+#include "BreakoutGameManager.h"
+#include "Kismet/GameplayStatics.h"
 #include "EngineUtils.h"
 #include "Misc/CommandLine.h"
 
@@ -38,6 +40,8 @@ void ABreakoutPaddle::BeginPlay()
 	bAutoPlay = FParse::Param(FCommandLine::Get(), TEXT("autoplay"));
 	bAutoMiss = FParse::Param(FCommandLine::Get(), TEXT("automiss"));
 
+	GameManager = Cast<ABreakoutGameManager>(UGameplayStatics::GetActorOfClass(this, ABreakoutGameManager::StaticClass()));
+
 	EnsureInputAssets();
 	if (APlayerController* PC = Cast<APlayerController>(GetController()))
 	{
@@ -55,12 +59,18 @@ void ABreakoutPaddle::EnsureInputAssets()
 		MoveAction = NewObject<UInputAction>(this, TEXT("IA_Move"));
 		MoveAction->ValueType = EInputActionValueType::Axis1D;
 	}
+	if (!ActionAction)
+	{
+		ActionAction = NewObject<UInputAction>(this, TEXT("IA_Action"));
+		ActionAction->ValueType = EInputActionValueType::Boolean;
+	}
 	if (!InputMappingContext)
 	{
 		InputMappingContext = NewObject<UInputMappingContext>(this, TEXT("IMC_InGame"));
 		InputMappingContext->MapKey(MoveAction, EKeys::D);
 		FEnhancedActionKeyMapping& Left = InputMappingContext->MapKey(MoveAction, EKeys::A);
 		Left.Modifiers.Add(NewObject<UInputModifierNegate>(InputMappingContext));
+		InputMappingContext->MapKey(ActionAction, EKeys::SpaceBar);
 	}
 }
 
@@ -72,6 +82,8 @@ void ABreakoutPaddle::SetupPlayerInputComponent(UInputComponent* PlayerInputComp
 	if (UEnhancedInputComponent* Input = Cast<UEnhancedInputComponent>(PlayerInputComponent))
 	{
 		Input->BindAction(MoveAction, ETriggerEvent::Triggered, this, &ABreakoutPaddle::Move);
+		// 押した瞬間だけ（Triggered だと押しっぱなしで連打になる）
+		Input->BindAction(ActionAction, ETriggerEvent::Started, this, &ABreakoutPaddle::Action);
 	}
 }
 
@@ -81,6 +93,14 @@ void ABreakoutPaddle::Move(const FInputActionValue& Value)
 	const FVector Delta = FVector::RightVector * Axis * Speed * GetWorld()->GetDeltaSeconds();
 	// Sweep で壁にめり込まないようにする
 	AddActorWorldOffset(Delta, true);
+}
+
+void ABreakoutPaddle::Action(const FInputActionValue& Value)
+{
+	if (GameManager)
+	{
+		GameManager->Action();
+	}
 }
 
 void ABreakoutPaddle::Tick(float DeltaSeconds)
@@ -106,8 +126,17 @@ void ABreakoutPaddle::UpdateAutoPlay(float DeltaSeconds)
 	}
 	if (!Target)
 	{
+		// ボールがないとき：少し待って Space を押す（ゲームオーバー後は長めに待ってやり直し）
+		IdleTime += DeltaSeconds;
+		const float Wait = (GameManager && GameManager->bIsGameOver) ? 3.0f : 1.0f;
+		if (GameManager && IdleTime >= Wait)
+		{
+			IdleTime = 0.0f;
+			GameManager->Action();
+		}
 		return;
 	}
+	IdleTime = 0.0f;
 	if (bAutoMiss)
 	{
 		// 落下中のボールの着地点を予測し、反対側の端へ逃げる

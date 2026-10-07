@@ -163,8 +163,13 @@ def main():
     if imc:
         cdo(paddle).set_editor_property("input_mapping_context", imc)
         cdo(paddle).set_editor_property("move_action", actions["IA_Move"])
+        if "IA_Action" in actions:
+            cdo(paddle).set_editor_property("action_action", actions["IA_Action"])
     compile_save(paddle)
     compile_save(ball)
+    if gm:
+        # GameManager が生成するボールは BP の Ball
+        cdo(gm).set_editor_property("ball_class", ball.generated_class())
     for bp in (block, gm):
         if bp:
             compile_save(bp)
@@ -181,7 +186,11 @@ def main():
         if STEP <= 2:
             spawn(classes["Ball"], (0, 0, 1000), label="Ball")
         if STEP >= 2:
-            spawn(classes["GameManager"], (0, 0, 0), label="GameManager")
+            gm_actor = spawn(classes["GameManager"], (0, 0, 0), label="GameManager")
+            if STEP >= 3:
+                # ボールの発射位置（スライドの RespawnLocationActor）
+                respawn = spawn(unreal.TargetPoint, (0, 0, 1000), label="RespawnLocationActor")
+                gm_actor.set_editor_property("spawn_location_actor", respawn)
             spawn(native("MissArea"), (0, 0, 120), label="MissArea")
             # 2段 x 3個（自動プレイで30秒ほどでクリアできる配置）
             for row, z in enumerate((4500, 4200)):
