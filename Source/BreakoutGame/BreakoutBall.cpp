@@ -1,11 +1,12 @@
 #include "BreakoutBall.h"
 
 #include "BreakoutBlock.h"
-#include "BreakoutPaddle.h"
 #include "BreakoutGameManager.h"
+#include "BreakoutPaddle.h"
 #include "Components/StaticMeshComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetMathLibrary.h"
+#include "Materials/MaterialInstanceDynamic.h"
 #include "UObject/ConstructorHelpers.h"
 
 ABreakoutBall::ABreakoutBall()
@@ -25,9 +26,51 @@ ABreakoutBall::ABreakoutBall()
 	Sphere->OnComponentBeginOverlap.AddDynamic(this, &ABreakoutBall::OnSphereBeginOverlap);
 }
 
+void ABreakoutBall::BeginPlay()
+{
+	Super::BeginPlay();
+
+	MaterialInstance = Sphere->CreateDynamicMaterialInstance(0, BallMaterial);
+	UpdateColor();
+}
+
+void ABreakoutBall::UpdateColor()
+{
+	if (MaterialInstance)
+	{
+		MaterialInstance->SetVectorParameterValue(TEXT("BaseColor"), bPiercing ? FLinearColor(1.0f, 0.18f, 0.02f) : FLinearColor(1.0f, 1.0f, 0.9f));
+	}
+}
+
+void ABreakoutBall::StartPierce(float Duration)
+{
+	bPiercing = true;
+	PierceTimeLeft = Duration;
+	// ブロック（WorldDynamic）とは重なるだけにする。壁とパドルでは普通に跳ね返る
+	Sphere->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Overlap);
+	UpdateColor();
+}
+
 void ABreakoutBall::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
+
+	if (bPiercing)
+	{
+		PierceTimeLeft -= DeltaSeconds;
+		if (PierceTimeLeft <= 0.0f)
+		{
+			// ブロックの中で元に戻るとはまってしまうので、重なっている間は貫通を続ける
+			TArray<AActor*> Overlapping;
+			Sphere->GetOverlappingActors(Overlapping, ABreakoutBlock::StaticClass());
+			if (Overlapping.Num() == 0)
+			{
+				bPiercing = false;
+				Sphere->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Block);
+				UpdateColor();
+			}
+		}
+	}
 
 	// 1フレームで複数回当たっても抜けないよう、残りの移動量で数回だけやり直す
 	float Remaining = Speed * DeltaSeconds;
@@ -45,6 +88,15 @@ void ABreakoutBall::Tick(float DeltaSeconds)
 		{
 			return;
 		}
+	}
+}
+
+void ABreakoutBall::PlayKnock()
+{
+	// 当たるたびに SE（ピッチを少しずつ変える）
+	if (KnockSound)
+	{
+		UGameplayStatics::PlaySound2D(this, KnockSound, 1.0f, FMath::FRandRange(0.9f, 1.15f));
 	}
 }
 
@@ -78,11 +130,7 @@ void ABreakoutBall::Bounce(const FHitResult& Hit)
 		Block->OnBallHit();
 	}
 
-	// 当たるたびに SE
-	if (KnockSound)
-	{
-		UGameplayStatics::PlaySound2D(this, KnockSound);
-	}
+	PlayKnock();
 }
 
 FVector ABreakoutBall::ClampDirection(const FVector& InDirection) const
@@ -96,6 +144,18 @@ FVector ABreakoutBall::ClampDirection(const FVector& InDirection) const
 
 void ABreakoutBall::OnSphereBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
+	if (bPiercing)
+	{
+		if (ABreakoutBlock* Block = Cast<ABreakoutBlock>(OtherActor))
+		{
+			if (!Block->bUnbreakable)
+			{
+				Block->OnBallHit();
+				PlayKnock();
+			}
+			return;
+		}
+	}
 	if (OtherComp && OtherComp->ComponentHasTag(TEXT("MissArea")))
 	{
 		if (ABreakoutGameManager* GM = Cast<ABreakoutGameManager>(UGameplayStatics::GetActorOfClass(this, ABreakoutGameManager::StaticClass())))

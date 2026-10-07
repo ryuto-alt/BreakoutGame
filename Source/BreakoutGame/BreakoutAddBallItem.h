@@ -8,8 +8,20 @@ class UStaticMeshComponent;
 class UTextRenderComponent;
 class UPrimitiveComponent;
 class UMaterialInterface;
+class UMaterialInstanceDynamic;
+class USoundBase;
 
-// ブロックから落ちてくる「ボール追加」アイテム（スライドの AddBallItem）。パドルで受けるとボールが1個増える
+// アイテムの種類
+UENUM(BlueprintType)
+enum class EBreakoutItemType : uint8
+{
+	AddBall UMETA(DisplayName = "A : ボール追加"),
+	Split UMETA(DisplayName = "S : 分裂"),
+	Pierce UMETA(DisplayName = "P : 貫通"),
+};
+
+// ブロックから落ちてくるアイテム（スライドの AddBallItem）。パドルで受けると効果が出る
+//   A: ボールが1個増える（スライドどおり）  S: 場のボールがそれぞれ1個ずつ分裂  P: 数秒間ブロックを貫通
 UCLASS()
 class BREAKOUTGAME_API ABreakoutAddBallItem : public AActor
 {
@@ -21,9 +33,12 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Item")
 	TObjectPtr<UStaticMeshComponent> Sphere;
 
-	// カメラ側（-X）に「A」を表示する
+	// カメラ側（-X）に A / S / P を表示する
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Item")
 	TObjectPtr<UTextRenderComponent> LabelText;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Item")
+	EBreakoutItemType ItemType = EBreakoutItemType::AddBall;
 
 	// 落下速度
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Item")
@@ -33,8 +48,9 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item")
 	TObjectPtr<UMaterialInterface> ItemMaterial;
 
+	// 受け取ったときの音
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item")
-	FLinearColor ItemColor = FLinearColor(0.9f, 0.1f, 0.8f);
+	TObjectPtr<USoundBase> PickupSound;
 
 	virtual void Tick(float DeltaSeconds) override;
 

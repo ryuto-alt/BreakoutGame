@@ -1,88 +1,88 @@
-# BreakoutGame
+# BreakoutGame（ブロック崩し）
 
-ND1 ブロック崩し（Unreal Engine 5.8）。
+ND1 評価課題01：Unreal Engine 5.8 で作ったブロック崩しです。
 
-- ロジックは C++（`Source/BreakoutGame`）、配置や見た目は Blueprint 子クラス（`Content/Blueprints`）とレベル（`Content/Maps`）。
-- `Tools/gen_content.py` はエディタの Python で Blueprint・入力アセット・レベルを作り直すスクリプト。
-- `Tools/record.ps1` は録画用。起動オプション `-autoplay` を付けるとパドルが自動でボールを追う（デモ録画用）。
+- クラス・名前：ND1_LE4B_05 ウノ リュウト
+- エンジン：Unreal Engine 5.8（Windows 64bit）
+- ロジックはすべて C++（`Source/BreakoutGame`）。配置・見た目・アセットの設定は Blueprint の子クラスとレベルで持たせています
+- GitHub：`ryuto-alt/BreakoutGame`（ブランチ `評価課題01`、同じ内容を `main` にも反映）
+
+## 起動方法
+
+提出 zip を展開し、`Windows/BreakoutGame.exe` を起動します（ウィンドウ 1280x720）。タイトル画面で Space を押すと始まります。
 
 ## 操作
 
 | キー | 動作 |
 |---|---|
 | A / D | パドルを左右に移動 |
-| Space | ボール発射（ゲームオーバー後はやり直し） |
+| Space | ボール発射 ／ クリア後は次のステージへ ／ ゲームオーバー後はやり直し ／ タイトルでゲーム開始 |
 
-## 01_01 PaddleとBallの作成
+## 遊び方
 
-- Level1（ライト・空・フォグ・外壁4枚・カメラ・PlayerStart）
-- GameMode `BreakoutGame`（DefaultPawnClass = Paddle）
-- Paddle：Enhanced Input（IA_Move / IMC_InGame）で左右移動、Sweep で壁にめり込まない
-- Ball：斜めに飛び、壁とパドルで反射（MirrorVectorByNormal）
+- ボールを打ち返してブロックをすべて壊すとクリアです。クリア後に Space で次のステージへ進みます。3 ステージ全部クリアすると「ALL CLEAR!!」が出て、Space でタイトルに戻ります
+- 残りボールは最初 3 個（左上の `LeftBall`）。すべて落とすとゲームオーバーです
+- ブロックの数字は耐久値（Hp）。当たるたびに減り、色も変わります（緑 1 ／ 黄 2 ／ 橙 3 ／ 赤 4 ／ 紫 5）
+- 灰色の数字なしブロックは壊れません（クリアには数えません）
+- ブロックを壊すと、ときどきアイテムが落ちてきます。パドルで受けると効果が出ます
 
-## 01_02 Block・GameManager・クリア/ゲームオーバー
+| アイテム | 効果 |
+|---|---|
+| **A**（ピンク） | ボールが 1 個増える |
+| **S**（水色） | 場にあるボールがそれぞれ 1 個ずつ、左右反転した向きに分裂する |
+| **P**（オレンジ） | 約 5 秒間、ボールがオレンジ色になってブロックを貫通する（通るたびにダメージ） |
 
-- `ABreakoutBlock`（BP `Block`）：ボールが当たると消える。BeginPlay で GameManager に自分を登録（AddBlockNum）
-- `ABreakoutGameManager`（BP `GameManager`、レベルの (0,0,0) に1つ配置）：BlockNum / BrokenBlockNum / bIsCleared を管理。全ブロックを壊すと `ViewClearWidget`
-- `AMissArea`（(0,0,120)、BoxExtent 40,1500,40、タグ `MissArea`）：ボールが触れると `MissCount` → `GameOver!`。クリア後は出さない
-- ウィジェットは Widget Blueprint を使わず C++ で作成（`RebuildWidget` で CanvasPanel + TextBlock を組み立て）
-  - `UBreakoutClearWidget`：「GameClear!!」。FloatAnimation は NativeTick で Y を 0→-50→0（2秒）× 3回
-  - `UBreakoutGameOverWidget`：「GameOver!」
-  - ウィンドウが 960x540 のためスライドのフォントサイズ（200/180）ではなく 110/100 にしている
-- PrintString の代わりに `UE_LOG` を使用
-- 録画：`-automiss` を付けるとパドルがボールの着地点から逃げてミスを再現。`-uiframes`（GameMode）は UMG が写る録画用で、`record.ps1 -Capture "-uiframes"` で使う（`-dumpmovie` は UI を写さない）
-- スクリプトは PowerShell 7（`pwsh -File ...`）で実行すること（Windows PowerShell 5.1 だと日本語コメントで param が壊れる）
+- パドルのどこで受けるかで返る角度が変わります。端で受けるほど斜めに返ります（狙い撃ち）
 
-## 01_03 リスポーン・残ボール・リセット
+## 実装した評価項目
 
-- ボールはレベルに置かず、GameManager が `SpawnBall` で生成（`RespawnLocationActor`＝TargetPoint (0,0,1000) の位置。`SpawnLocationActor` にインスタンスで指定）
-- 同時に1個まで（`bIsBallSpawned`）、残り `LeftBallNum`（既定3）。発射のたびに1減る
-- Space（`IA_Action`、`IMC_InGame` に追加）を Paddle が `Started` で受けて `GameManager->Action()`。ゲームオーバーなら `LevelReset`（現在のレベルを再読込）、それ以外は `SpawnBall`
-- 残り0でミスすると GameOver（白→赤を2秒）と「Push SPACE to Restart」を表示
-- 左上の「LeftBall : n」は `UBreakoutGameInfoWidget`。スライドではレベルブループリントの BeginPlay で作っていたが、C++ ではレベルBPを使わず GameManager の BeginPlay で作成。Text のバインドは NativeTick で毎フレーム更新して同等にしている
-- 録画：`-automiss` でボールを3回ミス → ゲームオーバー → 自動で Space を押して再開
+| # | 評価項目 | 実装した場所 |
+|---|---|---|
+| 1 | 提出規則 | `ND1_LE4B_05_ウノ_リュウト_Test01.zip` に、パッケージ化したゲーム一式と、この内容の `readme.md` を入れて提出 |
+| 2 | GameClear / GameOver | `ABreakoutGameManager`（`AddBrokenBlockNum` で全ブロック破壊 → `ViewClearWidget`、`MissArea` に触れて残りなし → `ViewGameOverWidget`）。表示は `UBreakoutClearWidget`（「GameClear!!」が上下にふわっと 3 回）と `UBreakoutGameOverWidget`（「GameOver!」）。クリア後に落ちたボールではゲームオーバーにならない |
+| 3 | Space でリセット / レベル遷移 | パドルが `IA_Action`（Space、`Started`）を受けて `GameManager->Action()`。ゲームオーバー中は `LevelReset`（今のレベルを読み直し）、クリア済みなら `OpenNextLevel`（`NextLevelName`）、それ以外はボール発射。Level1 → Level2 → Level3 → TitleLevel |
+| 4 | GameOver の表示アニメーション | `UBreakoutGameOverWidget`：文字色が白 → 赤（2 秒）。さらに大きく出て縮むポップ、左右の揺れ、「Push SPACE to Restart」の点滅 |
+| 5 | ブロックの Hp 数字 | `ABreakoutBlock::HpText`（`UTextRenderComponent`、カメラ側の面に表示）。`Hp` はレベル上のインスタンスごとに設定できる |
+| 6 | Hp による色の変化 | `ABreakoutBlock::ColorTable`（Hp 1〜5）と `BlockMaterial`（VectorParameter `BaseColor`）の動的マテリアル。`ReloadHp` で数字と色を更新 |
+| 7 | BGM と SE | BGM：`Breakout_BGM`（ループ、`GameManager` の BeginPlay で再生）。SE：ボールが当たるたびに `Breakout_SE_Knock`（ピッチを少し変える）。ほかにブロック破壊・アイテム取得・クリア・ゲームオーバーの音 |
+| 8 | パドル位置による反射 | `ABreakoutPaddle::GetTopNormal`（天面なら当たった位置で法線を最大 `MaxTiltNormalDeg` = 20 度傾ける）と `ABreakoutBall::ClampDirection`（水平すぎる向きを防ぐ、`MinHorizontalAngleDeg` = 20 度） |
+| 9 | ボールを増やすアイテム | `ABreakoutAddBallItem`（BP `AddBallItem`）の A。ブロックが壊れたとき `ItemDropRate`（0.3）の確率で落ち、パドルで受けると `GameManager->GenerateBall()` |
+| 10 | ボールの持ち越し | `UBreakoutGameInstance::LeftBallNum`。`OpenNextLevel` で `LeftBallNum + InGameBallNum`（場のボールも含む）を入れ、次のレベルの `GameManager` が BeginPlay で受け取る。スコアも一緒に持ち越す |
+| 11 | 創意工夫 | 下の「アレンジした箇所」を参照 |
 
-## 01_04 耐久値・色・音・次レベル・ボール持ち越し
+## アレンジした箇所（創意工夫）
 
-- Block に `Hp`（レベル上で個別に設定）。当たるたびに -1 して `ReloadHp`、0 以下で壊れる
-  - `UTextRenderComponent`（黒、WorldSize 150、(-51,0,0)・Yaw 180）で残り Hp を表示。Cube はスケールされているので、文字は Root の子にしている
-  - `BlockMaterial`（VectorParameter `BaseColor`）を `OnConstruction` で動的マテリアルにし、`ColorTable[Hp-1]`（緑・黄・橙・赤・紫の5色）を設定
-- SE / BGM：`Tools/gen_sounds.py`（標準ライブラリだけ）で `Tools/SourceAudio/Breakout_SE_Knock.wav` / `Breakout_BGM.wav` を生成し、`gen_content.py` が `/Game/Sounds` にインポート（BGM は Looping）
-  - Ball は反射のたびに `PlaySound2D`。BGM は SoundCue をレベルに置く代わりに GameManager の BeginPlay で `SpawnSound2D`
-  - 元のスライドは ogg + SoundCue だが、ここでは生成した wav を直接使っている
-- `NextLevelName`（GameManager のインスタンスで指定）。`Action` は ゲームオーバー → やり直し / クリア済み → `OpenNextLevel` / それ以外 → `SpawnBall`
-- `UBreakoutGameInstance`（BP `BreakoutGameInstance`、`DefaultEngine.ini` の `GameInstanceClass` に設定）：`LeftBallNum`（既定 -1）と `IsValidBallNum`。`OpenNextLevel` で残りボールを入れ、次レベルの GameManager が BeginPlay で受け取る
-  - スライドは `LeftBallNum + 1`（場のボール分）だが、場にボールがなければ足さないようにしている
-  - ゲームオーバーからのやり直しは持ち越しを -1 に戻し、レベルの既定値から始める
-- Level1（Hp 1〜3 の3個、次は Level2）、Level2（Hp 2〜5 の7個、次は Level1）。配置は `gen_content.py` の `LAYOUT_LEVEL1/2`
-- 録画用オプション：`-startballs=N`（最初のレベルの残りボール数）、`-autoseed=N`（自動プレイの乱数を固定）。クリア後は自動プレイが約2秒後に Space を押して次のレベルへ進む
+**ゲームの中身**
+- **壊れないブロック**（Unbreakable）：灰色で数字なし。壊れず、クリア条件にも数えない。Level2 と Level3 で使用
+- **分裂アイテム S**：場にあるボールすべてが、左右反転した向きにもう 1 個ずつ増える（上限 10 個）
+- **貫通アイテム P**：約 5 秒間、ボールがオレンジ色になりブロックをすり抜けながらダメージを与える（壁とパドルでは跳ね返る）。時間切れでブロックの中に埋まらないよう、重なっている間は貫通を続ける
+- **アイテムをランダムに**：ブロックを壊すと A / S / P のどれかがランダムに落ちる
+- **複数ステージ**：Level1（かんたん）／ Level2（壊れないブロックあり）／ Level3（山形の配置で Hp 最大 5、壊れないブロックあり）。クリア後は次のステージへ、最後は「ALL CLEAR!!」からタイトルへ戻る
+- **ステージが進むほどボールが速い**：1000 → 1150 → 1300
+- **スコア**：ブロックに当たると +10、壊すと +100、アイテム取得で +50。ステージをまたいで持ち越す
+- **タイトル画面**：「BREAKOUT」と点滅する「Push SPACE」。Space でゲーム開始
 
-## 01_05 狙い撃ち
+**見た目・演出**
+- ネオン調のデザイン：暗い背景、水色の壁、明るい色の Unlit マテリアル（ライトに左右されない）
+- 画面表示：左上に `LeftBall`、上中央に `STAGE`、右上に `SCORE`
+- ブロックを壊すと、色つきの小さなかけらが飛び散るパーティクル（C++ の `ABreakoutDebris`）。壊したとき・クリア・ゲームオーバーでカメラが揺れる
+- ボールのヒット音はピッチが毎回少し変わる。ブロック破壊・アイテム取得・クリア・ゲームオーバーにも別の効果音（`Tools/gen_sounds.py` で自作）
+- クリア画面：「GameClear!!」が 3 回ふわっと動き、下に「Push SPACE to Next Stage」（最終ステージは「ALL CLEAR!!」と「Push SPACE to Title」）
+- GameOver 画面：ポップ・揺れ・白から赤へ・Push SPACE の点滅
 
-- パドル天面の当たった位置で反射用の法線を傾ける
-  - `ABreakoutPaddle::GetTopNormal(HitLocation, Normal, bIsHitTopSurface, OutNormal)`：Normal.Z > 0.7 を天面とみなし、`GetActorBounds` の Origin / BoxExtent から t = -1（左端）〜+1（右端）を出して X 軸まわりに `t * MaxTiltNormalDeg`（既定20度）傾ける。右端ほど +Y 側に傾け、右で受けると右へ返る
-  - 天面以外（側面など）は従来どおり衝突法線で反射
-- `ABreakoutBall`：コンポーネントタグ `Player` のパドルの天面に当たったときだけ、傾けた法線で反射 → `ClampDirection`（上向きを 0 度とした atan2 を `±(90 - MinHorizontalAngleDeg)` に制限、既定20度）。それ以外は通常の反射。SE は両方で鳴る
-- デバッグ：起動オプション `-debugnormals` で天面の法線を青い矢印21本で描画（既定はオフ。スライドでは確認後に Tick から外す）
-- 録画：自動プレイは受ける位置を 左端 → 中央 → 右端 と順番に変えて返す角度の違いを見せる
+## 技術メモ
 
-## 01_06 アイテム（ボール追加）・コリジョン整理
+- C++ 17、UE 5.8、Enhanced Input。ウィジェットは Widget Blueprint を使わず、すべて C++（`RebuildWidget` と `NativeTick`）で作っている
+- 移動はすべて Tick での Sweep 移動（物理は使わない）。Ball は `AddActorWorldOffset(..., Sweep=true, &Hit)` で当たりを取り、`Bounce` の中で Block・Paddle を直接呼ぶ（Hit イベントに頼らない）
+- 主なクラス：`ABreakoutPaddle` / `ABreakoutBall` / `ABreakoutBlock` / `ABreakoutGameManager` / `AMissArea` / `ABreakoutAddBallItem` / `ABreakoutDebris` / `UBreakoutGameInstance` / `ABreakoutTitleManager` と、`UBreakout*Widget`（Clear / GameOver / GameInfo / Title）。スライドの名前の Blueprint（`Paddle` `Ball` `Block` `GameManager` `AddBallItem` `BreakoutGame` `BreakoutGameInstance`）はこれらの子クラス
+- コリジョン：オブジェクトチャンネル `Item` / `Ball` / `MissArea` とプリセットを `Config/DefaultEngine.ini` に定義。ボール同士・ボールとアイテムはぶつからない。ブロックは `WorldDynamic`、壁は `WorldStatic` にして、貫通ボールがブロックだけをすり抜けるようにしている
+- スライドとの違い：レベルブループリントの代わりに、GameManager の BeginPlay でウィジェットを作る／タイトルは `ABreakoutTitleManager` が Space を受ける。BGM は SoundCue ではなく、ループ設定した wav を `SpawnSound2D` で再生。アイテムの落下率はスライドの 0.5 ではなく 0.3
+- `Tools/gen_content.py`：エディタの Python で Blueprint・マテリアル・サウンド取り込み・入力アセット・全レベルを作り直す（`Tools/run_python.ps1` で実行）。ステージの配置は先頭の `STAGES`（数字 = Hp、`#` = 壊れないブロック）
+- `Tools/gen_sounds.py`：標準ライブラリだけで BGM と効果音の wav を生成（`py -I Tools/gen_sounds.py`、出力は `Tools/SourceAudio`）
+- 録画用の起動オプション（配布版では使わない）：`-autoplay`（パドルの自動操作）、`-automiss`（わざとミスする）、`-autoseed=N`（自動操作とアイテム抽選の乱数を固定）、`-startballs=N`（最初の残りボール数）、`-uiframes`（UI も写る連番画像を保存）、`-debugnormals`（パドル天面の法線の矢印）。`Tools/record.ps1` と `Tools/mkgif.sh` で GIF にしている
+- パッケージ化：`Config/DefaultGame.ini` に Shipping・配布用・フルリビルド・エディタコンテンツ除外・クックするマップ（TitleLevel / Level1〜3）を設定。`Tools/package.ps1` が `RunUAT BuildCookRun` を呼ぶ
+- ビルド（エディタ）：`build.ps1`。PowerShell のスクリプトは PowerShell 7（`pwsh`）で実行する
 
-- `Config/DefaultEngine.ini` の `[/Script/Engine.CollisionProfile]` にオブジェクトチャンネル `Item`（既定 Ignore）/ `Ball`（Block）/ `MissArea`（Ignore）とプリセット `Item` / `Ball` / `MissArea` を追加し、`Pawn` は Item に Overlap（`EditProfiles`）。Ball は Ball と Item を無視するので、ボール同士はぶつからない
-  - 適用：MissArea ＝ `MissArea`、Paddle の Cube ＝ `Pawn`、Ball の Sphere ＝ `Ball`、アイテム ＝ `Item`
-- GameManager：`bIsBallSpawned` を `InGameBallNum`（場のボール数）に変更。`SpawnBall` は `InGameBallNum == 0 && LeftBallNum > 0`、`GenerateBall` は無条件で1個増やす（`LeftBallNum` を消費しない）。`MissCount` はクリア前だけ `InGameBallNum--` し、`LeftBallNum <= 0 && InGameBallNum <= 0` でゲームオーバー。`OpenNextLevel` は `LeftBallNum + InGameBallNum` を持ち越す
-- `ABreakoutAddBallItem`（BP `AddBallItem`）：Sphere が Root（タグ `Item`）、手前に「A」の TextRender。`Speed`（既定600）で真下に落下し、`MissArea` タグで消え、`Player` タグ（パドル）に触れると `GenerateBall` して消える。色は BlockMaterial の動的マテリアル
-- ブロックは壊れたとき `ItemDropRate`（既定 0.3、インスタンスで変更可）の確率でアイテムを落とす。スライドの数値は Weight 0.5（本文は10%）で食い違っているため、既定値は 0.3 にしている
-- アイテムは見やすいよう Sphere のスケールを 1.2 にしている（ボールより少し大きい）
-- 録画：自動プレイは、どのボールよりも低い位置にアイテムがあれば受けに行く。ブロックの落とす乱数は `-autoseed=N` で固定される
-- `gen_content.py`：`BreakoutGameInstance` は `DefaultEngine.ini` で起動時に読まれるため、既にあれば作り直さない
+## 開発の流れ（ブランチ）
 
-## 01_07 タイトル
-
-- `/Game/Maps/TitleLevel`：他のレベルと同じライト・空・外壁・カメラに、背景のブロックを並べたタイトル。GameMode は `ABreakoutTitleGameMode`（パドルを出さない）
-- `ABreakoutTitleManager`（レベルに1つ配置）：`UBreakoutTitleWidget` を作って表示し、Space（`IA_Action`、`Started`）で `NextLevelName`（既定 `Level1`）を開く。スライドではレベルブループリントの BeginPlay（CreateWidget）と SpaceBar キーイベントだった部分を C++ のアクタに置き換えている。新しいゲームの開始なので持ち越しボール数は -1 に戻す
-- `UBreakoutTitleWidget`：「BREAKOUT」（ふわふわ上下）と、点滅する「Push SPACE」。標準フォントは日本語を含まないので英語表記にしている
-- 01_08（パッケージ化）の準備：TitleManager の BeginPlay で `UGameUserSettings` を Windowed 1280x720 にして `ApplySettings`。エディタ起動と、録画（`-dumpmovie` / `-uiframes` / `-benchmark`）では行わず、録画は 960x540 のまま
-- `DefaultEngine.ini`：`GameDefaultMap` を `TitleLevel` に変更（`EditorStartupMap` は Level1 のまま）
-- Level2 のクリア後は `TitleLevel` へ戻る
-- 録画：自動プレイはタイトルで約2秒後に Space を押す
+`01_01`（Paddle と Ball）→ `01_02`（Block・GameManager・クリア/ゲームオーバー）→ `01_03`（リスポーン・残ボール・リセット）→ `01_04`（Hp・色・音・次のレベル・持ち越し）→ `01_05`（狙い撃ち）→ `01_06`（アイテム・コリジョン）→ `01_07`（タイトル）→ `評価課題01`（仕上げ・アレンジ・パッケージ化）。

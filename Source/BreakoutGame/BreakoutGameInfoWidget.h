@@ -7,7 +7,7 @@
 class UTextBlock;
 class ABreakoutGameManager;
 
-// 左上に「LeftBall : n」を出す（スライドの GameInformation）
+// 画面上部の表示（スライドの GameInformation）。左上に「LeftBall : n」、中央に STAGE、右上に SCORE（アレンジ）
 UCLASS()
 class BREAKOUTGAME_API UBreakoutGameInfoWidget : public UUserWidget
 {
@@ -19,6 +19,12 @@ protected:
 
 	UPROPERTY()
 	TObjectPtr<UTextBlock> LeftBallTextBox;
+
+	UPROPERTY()
+	TObjectPtr<UTextBlock> StageTextBox;
+
+	UPROPERTY()
+	TObjectPtr<UTextBlock> ScoreTextBox;
 
 	TWeakObjectPtr<ABreakoutGameManager> GameManager;
 };

@@ -17,7 +17,7 @@ TSharedRef<SWidget> UBreakoutGameOverWidget::RebuildWidget()
 		FSlateFontInfo Font = GameOverBox->GetFont();
 		Font.Size = 100;
 		GameOverBox->SetFont(Font);
-		GameOverBox->SetShadowOffset(FVector2D(3.0f, 3.0f));
+		GameOverBox->SetShadowOffset(FVector2D(4.0f, 4.0f));
 		GameOverBox->SetShadowColorAndOpacity(FLinearColor::Black);
 
 		UCanvasPanelSlot* PanelSlot = Root->AddChildToCanvas(GameOverBox);
@@ -32,13 +32,14 @@ TSharedRef<SWidget> UBreakoutGameOverWidget::RebuildWidget()
 		FSlateFontInfo SmallFont = PushSpaceTextBox->GetFont();
 		SmallFont.Size = 50;
 		PushSpaceTextBox->SetFont(SmallFont);
-		PushSpaceTextBox->SetShadowOffset(FVector2D(2.0f, 2.0f));
+		PushSpaceTextBox->SetShadowOffset(FVector2D(3.0f, 3.0f));
 		PushSpaceTextBox->SetShadowColorAndOpacity(FLinearColor::Black);
+		PushSpaceTextBox->SetRenderOpacity(0.0f);
 
 		UCanvasPanelSlot* PushSlot = Root->AddChildToCanvas(PushSpaceTextBox);
 		PushSlot->SetAnchors(FAnchors(0.5f, 0.5f));
 		PushSlot->SetAlignment(FVector2D(0.5f, 0.5f));
-		PushSlot->SetPosition(FVector2D(0.0f, 110.0f));
+		PushSlot->SetPosition(FVector2D(0.0f, 120.0f));
 		PushSlot->SetAutoSize(true);
 	}
 	return Super::RebuildWidget();
@@ -48,11 +49,28 @@ void UBreakoutGameOverWidget::NativeTick(const FGeometry& MyGeometry, float InDe
 {
 	Super::NativeTick(MyGeometry, InDeltaTime);
 
-	if (GameOverBox && Elapsed < ColorDuration + InDeltaTime)
+	Elapsed += InDeltaTime;
+	if (GameOverBox)
 	{
-		Elapsed += InDeltaTime;
 		// 白 → 赤（ColorAndOpacity）
 		const float Alpha = FMath::Clamp(Elapsed / ColorDuration, 0.0f, 1.0f);
 		GameOverBox->SetColorAndOpacity(FSlateColor(FMath::Lerp(FLinearColor::White, FLinearColor::Red, Alpha)));
+
+		// 大きく出てきて、少しオーバーシュートしながら縮む（ポップ）
+		const float PopTime = 0.45f;
+		const float P = FMath::Clamp(Elapsed / PopTime, 0.0f, 1.0f);
+		const float Scale = 1.0f + 2.2f * FMath::Pow(1.0f - P, 2.0f) - 0.12f * FMath::Sin(P * PI);
+		GameOverBox->SetRenderScale(FVector2D(Scale, Scale));
+
+		// 最初の0.7秒は左右に揺れる
+		const float ShakeTime = 0.7f;
+		const float Shake = Elapsed < ShakeTime ? FMath::Sin(Elapsed * 90.0f) * 14.0f * (1.0f - Elapsed / ShakeTime) : 0.0f;
+		GameOverBox->SetRenderTranslation(FVector2D(Shake, 0.0f));
+	}
+	if (PushSpaceTextBox)
+	{
+		// 文字が落ち着いたあとで点滅
+		const float Start = 0.6f;
+		PushSpaceTextBox->SetRenderOpacity(Elapsed < Start ? 0.0f : 0.55f + 0.45f * FMath::Sin((Elapsed - Start) * 6.0f));
 	}
 }

@@ -9,6 +9,7 @@ class UStaticMeshComponent;
 class UInputAction;
 class UInputMappingContext;
 class ABreakoutGameManager;
+class UMaterialInterface;
 
 // プレイヤーが操作するパドル（スライドの「Paddle」）。BP の Paddle はこのクラスの子。
 UCLASS()
@@ -38,6 +39,13 @@ public:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Paddle")
 	TObjectPtr<ABreakoutGameManager> GameManager;
+
+	// BlockMaterial（VectorParameter BaseColor）。パドルの色づけに使う
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Paddle")
+	TObjectPtr<UMaterialInterface> PaddleMaterial;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Paddle")
+	FLinearColor PaddleColor = FLinearColor(0.1f, 0.75f, 1.0f);
 
 	// 天面の端に当たるほど法線を最大この角度まで傾ける（狙い撃ち）
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Paddle")

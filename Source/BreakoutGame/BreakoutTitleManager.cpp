@@ -95,6 +95,7 @@ void ABreakoutTitleManager::StartGame()
 	if (UBreakoutGameInstance* GI = Cast<UBreakoutGameInstance>(GetGameInstance()))
 	{
 		GI->LeftBallNum = -1;
+		GI->Score = 0;
 	}
 	UE_LOG(LogTemp, Log, TEXT("StartGame : %s"), *NextLevelName.ToString());
 	UGameplayStatics::OpenLevel(this, NextLevelName);

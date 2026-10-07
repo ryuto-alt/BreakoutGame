@@ -18,7 +18,7 @@ ABreakoutAddBallItem::ABreakoutAddBallItem()
 	{
 		Sphere->SetStaticMesh(SphereMesh.Object);
 	}
-	Sphere->SetRelativeScale3D(FVector(1.2f));
+	Sphere->SetRelativeScale3D(FVector(1.5f));
 	Sphere->SetCollisionProfileName(TEXT("Item"));
 	Sphere->SetGenerateOverlapEvents(true);
 	Sphere->ComponentTags.Add(TEXT("Item"));
@@ -32,7 +32,7 @@ ABreakoutAddBallItem::ABreakoutAddBallItem()
 	LabelText->SetHorizontalAlignment(EHTA_Center);
 	LabelText->SetVerticalAlignment(EVRTA_TextCenter);
 	LabelText->SetTextRenderColor(FColor::Black);
-	LabelText->SetWorldSize(60.0f);
+	LabelText->SetWorldSize(110.0f);
 	LabelText->SetText(FText::FromString(TEXT("A")));
 	LabelText->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 }
@@ -41,9 +41,23 @@ void ABreakoutAddBallItem::BeginPlay()
 {
 	Super::BeginPlay();
 
+	// 種類ごとの文字と色
+	FLinearColor Color(1.0f, 0.2f, 0.7f);
+	FString Letter = TEXT("A");
+	if (ItemType == EBreakoutItemType::Split)
+	{
+		Color = FLinearColor(0.1f, 0.9f, 1.0f);
+		Letter = TEXT("S");
+	}
+	else if (ItemType == EBreakoutItemType::Pierce)
+	{
+		Color = FLinearColor(1.0f, 0.55f, 0.0f);
+		Letter = TEXT("P");
+	}
+	LabelText->SetText(FText::FromString(Letter));
 	if (UMaterialInstanceDynamic* MID = Sphere->CreateDynamicMaterialInstance(0, ItemMaterial))
 	{
-		MID->SetVectorParameterValue(TEXT("BaseColor"), ItemColor);
+		MID->SetVectorParameterValue(TEXT("BaseColor"), Color);
 	}
 }
 
@@ -69,9 +83,14 @@ void ABreakoutAddBallItem::OnSphereBeginOverlap(UPrimitiveComponent* OverlappedC
 	}
 	else if (OtherComp->ComponentHasTag(TEXT("Player")))
 	{
+		UE_LOG(LogTemp, Log, TEXT("Pickup type=%d"), static_cast<int32>(ItemType));
 		if (ABreakoutGameManager* GM = Cast<ABreakoutGameManager>(UGameplayStatics::GetActorOfClass(this, ABreakoutGameManager::StaticClass())))
 		{
-			GM->GenerateBall();
+			GM->ApplyItem(ItemType);
+		}
+		if (PickupSound)
+		{
+			UGameplayStatics::PlaySound2D(this, PickupSound);
 		}
 		Destroy();
 	}

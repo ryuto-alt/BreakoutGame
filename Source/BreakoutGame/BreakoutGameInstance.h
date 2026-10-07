@@ -4,7 +4,7 @@
 #include "Engine/GameInstance.h"
 #include "BreakoutGameInstance.generated.h"
 
-// レベルをまたいで残りボール数を持ち越す（スライドの BreakoutGameInstance）
+// レベルをまたいで残りボール数とスコアを持ち越す（スライドの BreakoutGameInstance）
 UCLASS()
 class BREAKOUTGAME_API UBreakoutGameInstance : public UGameInstance
 {
@@ -17,4 +17,8 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "Game")
 	bool IsValidBallNum() const { return LeftBallNum >= 0; }
+
+	// 前のレベルまでのスコア
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Game")
+	int32 Score = 0;
 };

@@ -15,6 +15,7 @@
 #include "EngineUtils.h"
 #include "Misc/CommandLine.h"
 #include "DrawDebugHelpers.h"
+#include "Materials/MaterialInstanceDynamic.h"
 
 ABreakoutPaddle::ABreakoutPaddle()
 {
@@ -47,6 +48,11 @@ void ABreakoutPaddle::BeginPlay()
 	AutoRandom.Initialize(AutoSeed);
 
 	GameManager = Cast<ABreakoutGameManager>(UGameplayStatics::GetActorOfClass(this, ABreakoutGameManager::StaticClass()));
+
+	if (UMaterialInstanceDynamic* MID = Cube->CreateDynamicMaterialInstance(0, PaddleMaterial))
+	{
+		MID->SetVectorParameterValue(TEXT("BaseColor"), PaddleColor);
+	}
 
 	EnsureInputAssets();
 	if (APlayerController* PC = Cast<APlayerController>(GetController()))
@@ -157,6 +163,30 @@ void ABreakoutPaddle::Tick(float DeltaSeconds)
 	}
 }
 
+namespace
+{
+	// 落下中のボールが、パドルの高さに届くまでの時間と着地点の Y（壁での跳ね返りを展開して予測）
+	void PredictLanding(const ABreakoutBall* Ball, float PaddleZ, float& OutTime, float& OutY)
+	{
+		const FVector Dir = Ball->Direction.GetSafeNormal();
+		const FVector Loc = Ball->GetActorLocation();
+		if (Dir.Z >= -0.01f)
+		{
+			OutTime = 1000.0f;
+			OutY = Loc.Y;
+			return;
+		}
+		const float Dz = Loc.Z - PaddleZ;
+		OutTime = FMath::Max(Dz, 0.0f) / (-Dir.Z * Ball->Speed);
+		const float Unfolded = Loc.Y + (Dir.Y / -Dir.Z) * Dz;
+		const float Width = 2900.0f;
+		float U = FMath::Fmod(Unfolded + 1450.0f, Width * 2.0f);
+		if (U < 0.0f) U += Width * 2.0f;
+		if (U > Width) U = Width * 2.0f - U;
+		OutY = U - 1450.0f;
+	}
+}
+
 void ABreakoutPaddle::UpdateAutoPlay(float DeltaSeconds)
 {
 	// クリアしたら少し待って Space を押す（次のレベルへ）
@@ -171,32 +201,20 @@ void ABreakoutPaddle::UpdateAutoPlay(float DeltaSeconds)
 		}
 	}
 
-	// 一番低い位置にあるボールを追う
+	// いちばん早くパドルの高さに来るボールを狙う（落ちてくるものがなければ一番低いボール）
+	const float PaddleZ = GetActorLocation().Z + 100.0f;
 	const ABreakoutBall* Target = nullptr;
+	float TargetTime = 1000.0f;
+	float TargetY = 0.0f;
 	for (TActorIterator<ABreakoutBall> It(GetWorld()); It; ++It)
 	{
-		if (!Target || It->GetActorLocation().Z < Target->GetActorLocation().Z)
+		float Time, Y;
+		PredictLanding(*It, PaddleZ, Time, Y);
+		if (!Target || Time < TargetTime || (TargetTime >= 1000.0f && Time >= 1000.0f && It->GetActorLocation().Z < Target->GetActorLocation().Z))
 		{
 			Target = *It;
-		}
-	}
-	// 落ちてくるアイテムが、どのボールより低い位置にあれば受けに行く
-	if (!bAutoMiss)
-	{
-		const ABreakoutAddBallItem* Item = nullptr;
-		for (TActorIterator<ABreakoutAddBallItem> It(GetWorld()); It; ++It)
-		{
-			if (!Item || It->GetActorLocation().Z < Item->GetActorLocation().Z)
-			{
-				Item = *It;
-			}
-		}
-		if (Item && (!Target || Item->GetActorLocation().Z < Target->GetActorLocation().Z))
-		{
-			const float ItemDiff = Item->GetActorLocation().Y - GetActorLocation().Y;
-			AddActorWorldOffset(FVector::RightVector * FMath::Clamp(ItemDiff / 100.0f, -1.0f, 1.0f) * Speed * DeltaSeconds, true);
-			IdleTime = 0.0f;
-			return;
+			TargetTime = Time;
+			TargetY = Y;
 		}
 	}
 	if (!Target)
@@ -212,39 +230,57 @@ void ABreakoutPaddle::UpdateAutoPlay(float DeltaSeconds)
 		return;
 	}
 	IdleTime = 0.0f;
+
+	float DesiredY = TargetY;
 	if (bAutoMiss)
 	{
-		// 落下中のボールの着地点を予測し、反対側の端へ逃げる
+		// 落下中のボールの着地点の反対側の端へ逃げる
+		if (TargetTime < 1000.0f)
+		{
+			MissTargetY = TargetY >= 0.0f ? -1000.0f : 1000.0f;
+		}
+		DesiredY = MissTargetY;
+	}
+	else
+	{
+		// 打ち返すたびに、次に受ける位置（パドル上）を 左端 → 中央 → 右端 と変える
 		if (Target->Direction.Z < 0.0f)
 		{
-			const FVector Loc = Target->GetActorLocation();
-			const float Unfolded = Loc.Y + (Target->Direction.Y / -Target->Direction.Z) * (Loc.Z - 200.0f);
-			const float Width = 2900.0f;
-			float U = FMath::Fmod(Unfolded + 1450.0f, Width * 2.0f);
-			if (U < 0.0f) U += Width * 2.0f;
-			if (U > Width) U = Width * 2.0f - U;
-			const float Landing = U - 1450.0f;
-			MissTargetY = Landing >= 0.0f ? -1000.0f : 1000.0f;
+			bWasDescending = true;
 		}
-		const float MissDiff = MissTargetY - GetActorLocation().Y;
-		AddActorWorldOffset(FVector::RightVector * FMath::Clamp(MissDiff / 100.0f, -1.0f, 1.0f) * Speed * DeltaSeconds, true);
-		return;
+		else if (bWasDescending)
+		{
+			bWasDescending = false;
+			static const float Aim[] = { -430.0f, 0.0f, 430.0f };
+			AutoAimOffset = -Aim[++AimIndex % 3];
+		}
+		DesiredY = (TargetTime < 1000.0f ? TargetY : Target->GetActorLocation().Y) + AutoAimOffset;
+
+		// 落ちてくるアイテムは、ボールに間に合う余裕があるときだけ受けに行く
+		const ABreakoutAddBallItem* Item = nullptr;
+		for (TActorIterator<ABreakoutAddBallItem> It(GetWorld()); It; ++It)
+		{
+			if (It->GetActorLocation().Z > PaddleZ && (!Item || It->GetActorLocation().Z < Item->GetActorLocation().Z))
+			{
+				Item = *It;
+			}
+		}
+		if (Item)
+		{
+			const float ItemY = Item->GetActorLocation().Y;
+			const float ItemTime = (Item->GetActorLocation().Z - PaddleZ) / Item->Speed;
+			const float Travel = FMath::Abs(GetActorLocation().Y - ItemY) + FMath::Abs(ItemY - DesiredY);
+			const bool bBallSafe = TargetTime >= 1000.0f || TargetTime > Travel / Speed + 0.6f;
+			// アイテムがもうすぐ届くときは、ボールより先に間に合うなら受けに行く
+			const bool bItemFirst = ItemTime < 1.6f && TargetTime > ItemTime + 0.4f && FMath::Abs(GetActorLocation().Y - ItemY) <= Speed * ItemTime + 100.0f;
+			if ((bBallSafe || bItemFirst) && ItemTime > 0.0f)
+			{
+				DesiredY = ItemY;
+			}
+		}
 	}
-	if (Target->Direction.Z > 0.0f)
-	{
-	}
-	// 打ち返すたびに、次に受ける位置（パドル上）を 左端 → 中央 → 右端 と変える
-	if (Target->Direction.Z < 0.0f)
-	{
-		bWasDescending = true;
-	}
-	else if (bWasDescending)
-	{
-		bWasDescending = false;
-		static const float Aim[] = { -430.0f, 0.0f, 430.0f };
-		AutoAimOffset = -Aim[++AimIndex % 3];
-	}
-	const float Diff = Target->GetActorLocation().Y + AutoAimOffset - GetActorLocation().Y;
-	const float Axis = FMath::Clamp(Diff / 100.0f, -1.0f, 1.0f);
+	DesiredY = FMath::Clamp(DesiredY, -1000.0f, 1000.0f);
+	const float Diff = DesiredY - GetActorLocation().Y;
+	const float Axis = FMath::Clamp(Diff / 40.0f, -1.0f, 1.0f);
 	AddActorWorldOffset(FVector::RightVector * Axis * Speed * DeltaSeconds, true);
 }

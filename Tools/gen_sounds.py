@@ -104,6 +104,59 @@ def bgm():
     return [s / peak * 0.8 for s in buf]
 
 
+def tone_seq(notes, wave="square", gap=0.0, decay=6.0, vol=0.35):
+    """(MIDI ノート, 秒) の並びを1本の音にする"""
+    out = []
+    for m, dur in notes:
+        n = int(RATE * dur)
+        hz = midi_hz(m)
+        for i in range(n):
+            t = i / RATE
+            env = min(1.0, t / 0.004) * math.exp(-t * decay)
+            if wave == "square":
+                v = square(hz * t, 0.5)
+            elif wave == "tri":
+                v = triangle(hz * t)
+            else:
+                v = math.sin(2 * math.pi * hz * t)
+            out.append(v * env * vol)
+        out.extend([0.0] * int(RATE * gap))
+    return out
+
+
+def brk():
+    # ブロックが壊れる音：ノイズのはじけ + 下がるトーン
+    rnd = random.Random(3)
+    n = int(RATE * 0.22)
+    out = []
+    for i in range(n):
+        t = i / RATE
+        noise = (rnd.random() * 2 - 1) * math.exp(-t * 28.0) * 0.55
+        f = 900 * math.exp(-t * 9.0) + 160
+        tone = math.sin(2 * math.pi * f * t) * math.exp(-t * 14.0) * 0.5
+        out.append(noise + tone)
+    return out
+
+
+def item():
+    # アイテムを取った音：3音の上昇アルペジオ
+    return tone_seq([(72, 0.07), (76, 0.07), (79, 0.07), (84, 0.16)], "square", decay=7.0, vol=0.3)
+
+
+def gameover():
+    # ゲームオーバー：下がっていく4音
+    return tone_seq([(67, 0.22), (64, 0.22), (60, 0.22), (55, 0.7)], "tri", decay=2.5, vol=0.55)
+
+
+def clear():
+    # クリア：明るいファンファーレ
+    return tone_seq([(72, 0.14), (72, 0.14), (72, 0.14), (76, 0.2), (79, 0.2), (84, 0.7)], "square", decay=3.0, vol=0.28)
+
+
 if __name__ == "__main__":
     write_wav("Breakout_SE_Knock.wav", knock())
     write_wav("Breakout_BGM.wav", bgm())
+    write_wav("Breakout_SE_Break.wav", brk())
+    write_wav("Breakout_SE_Item.wav", item())
+    write_wav("Breakout_SE_GameOver.wav", gameover())
+    write_wav("Breakout_SE_Clear.wav", clear())

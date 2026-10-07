@@ -6,7 +6,8 @@
 
 class UTextBlock;
 
-// 「GameOver!」を出し、白から赤へ変える（スライドの GameOverWidget / GameOverAnimation）
+// 「GameOver!」を出す（スライドの GameOverWidget / GameOverAnimation）。
+// 白→赤（2秒）に加えて、大きく出てきて縮むポップと揺れ、Push SPACE の点滅（アレンジ）
 UCLASS()
 class BREAKOUTGAME_API UBreakoutGameOverWidget : public UUserWidget
 {
