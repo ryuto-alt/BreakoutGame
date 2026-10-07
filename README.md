@@ -56,3 +56,12 @@ ND1 ブロック崩し（Unreal Engine 5.8）。
   - ゲームオーバーからのやり直しは持ち越しを -1 に戻し、レベルの既定値から始める
 - Level1（Hp 1〜3 の3個、次は Level2）、Level2（Hp 2〜5 の7個、次は Level1）。配置は `gen_content.py` の `LAYOUT_LEVEL1/2`
 - 録画用オプション：`-startballs=N`（最初のレベルの残りボール数）、`-autoseed=N`（自動プレイの乱数を固定）。クリア後は自動プレイが約2秒後に Space を押して次のレベルへ進む
+
+## 01_05 狙い撃ち
+
+- パドル天面の当たった位置で反射用の法線を傾ける
+  - `ABreakoutPaddle::GetTopNormal(HitLocation, Normal, bIsHitTopSurface, OutNormal)`：Normal.Z > 0.7 を天面とみなし、`GetActorBounds` の Origin / BoxExtent から t = -1（左端）〜+1（右端）を出して X 軸まわりに `t * MaxTiltNormalDeg`（既定20度）傾ける。右端ほど +Y 側に傾け、右で受けると右へ返る
+  - 天面以外（側面など）は従来どおり衝突法線で反射
+- `ABreakoutBall`：コンポーネントタグ `Player` のパドルの天面に当たったときだけ、傾けた法線で反射 → `ClampDirection`（上向きを 0 度とした atan2 を `±(90 - MinHorizontalAngleDeg)` に制限、既定20度）。それ以外は通常の反射。SE は両方で鳴る
+- デバッグ：起動オプション `-debugnormals` で天面の法線を青い矢印21本で描画（既定はオフ。スライドでは確認後に Tick から外す）
+- 録画：自動プレイは受ける位置を 左端 → 中央 → 右端 と順番に変えて返す角度の違いを見せる

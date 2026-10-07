@@ -13,6 +13,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "EngineUtils.h"
 #include "Misc/CommandLine.h"
+#include "DrawDebugHelpers.h"
 
 ABreakoutPaddle::ABreakoutPaddle()
 {
@@ -39,6 +40,7 @@ void ABreakoutPaddle::BeginPlay()
 
 	bAutoPlay = FParse::Param(FCommandLine::Get(), TEXT("autoplay"));
 	bAutoMiss = FParse::Param(FCommandLine::Get(), TEXT("automiss"));
+	bDebugNormals = FParse::Param(FCommandLine::Get(), TEXT("debugnormals"));
 	int32 AutoSeed = 1;
 	FParse::Value(FCommandLine::Get(), TEXT("autoseed="), AutoSeed);
 	AutoRandom.Initialize(AutoSeed);
@@ -106,9 +108,47 @@ void ABreakoutPaddle::Action(const FInputActionValue& Value)
 	}
 }
 
+void ABreakoutPaddle::GetTopNormal(const FVector& HitLocation, const FVector& Normal, bool& bIsHitTopSurface, FVector& OutNormal) const
+{
+	// 上向きの面でなければ（側面など）そのまま返す
+	if (Normal.Z <= 0.7f)
+	{
+		bIsHitTopSurface = false;
+		OutNormal = Normal;
+		return;
+	}
+	FVector Origin, BoxExtent;
+	GetActorBounds(true, Origin, BoxExtent);
+	// 左端 -1、中央 0、右端 +1
+	const float T = FMath::Clamp((HitLocation.Y - Origin.Y) / BoxExtent.Y, -1.0f, 1.0f);
+	// X 軸まわりに回転。右端ほど +Y 側へ傾け、右で受けたボールが右へ返るようにする
+	OutNormal = Normal.RotateAngleAxis(-T * MaxTiltNormalDeg, FVector::ForwardVector);
+	bIsHitTopSurface = true;
+}
+
+void ABreakoutPaddle::DrawDebugTopSurfaceNormals() const
+{
+	FVector Origin, BoxExtent;
+	GetActorBounds(true, Origin, BoxExtent);
+	const int32 NumHalf = 10;
+	for (int32 Index = -NumHalf; Index <= NumHalf; ++Index)
+	{
+		const FVector Start(Origin.X, BoxExtent.Y / NumHalf * Index + Origin.Y, BoxExtent.Z + Origin.Z);
+		bool bTop = false;
+		FVector Normal;
+		GetTopNormal(Start, FVector::UpVector, bTop, Normal);
+		DrawDebugDirectionalArrow(GetWorld(), Start, Start + Normal * 200.0f, 100.0f, FColor::Blue, false, 0.0f, 0, 12.0f);
+	}
+}
+
 void ABreakoutPaddle::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
+
+	if (bDebugNormals)
+	{
+		DrawDebugTopSurfaceNormals();
+	}
 
 	if (bAutoPlay)
 	{
@@ -172,9 +212,17 @@ void ABreakoutPaddle::UpdateAutoPlay(float DeltaSeconds)
 	}
 	if (Target->Direction.Z > 0.0f)
 	{
-		// 上に向かっている間に、次に当てる位置を少しずらしておく
-		// ときどき端（角）で受けて、反射の向きを変える（軌道が同じ周回にならないように）
-		AutoAimOffset = AutoRandom.FRand() < 0.5f ? AutoRandom.FRandRange(-250.0f, 250.0f) : (AutoRandom.FRand() < 0.5f ? -1.0f : 1.0f) * AutoRandom.FRandRange(450.0f, 510.0f);
+	}
+	// 打ち返すたびに、次に受ける位置（パドル上）を 左端 → 中央 → 右端 と変える
+	if (Target->Direction.Z < 0.0f)
+	{
+		bWasDescending = true;
+	}
+	else if (bWasDescending)
+	{
+		bWasDescending = false;
+		static const float Aim[] = { -430.0f, 0.0f, 430.0f };
+		AutoAimOffset = -Aim[++AimIndex % 3];
 	}
 	const float Diff = Target->GetActorLocation().Y + AutoAimOffset - GetActorLocation().Y;
 	const float Axis = FMath::Clamp(Diff / 100.0f, -1.0f, 1.0f);

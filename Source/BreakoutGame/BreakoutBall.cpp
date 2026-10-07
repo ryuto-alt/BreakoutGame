@@ -1,6 +1,7 @@
 #include "BreakoutBall.h"
 
 #include "BreakoutBlock.h"
+#include "BreakoutPaddle.h"
 #include "BreakoutGameManager.h"
 #include "Components/StaticMeshComponent.h"
 #include "Kismet/GameplayStatics.h"
@@ -49,7 +50,26 @@ void ABreakoutBall::Tick(float DeltaSeconds)
 
 void ABreakoutBall::Bounce(const FHitResult& Hit)
 {
-	Direction = UKismetMathLibrary::MirrorVectorByNormal(Direction, Hit.ImpactNormal);
+	// パドルの天面に当たったときだけ、位置に応じて傾けた法線で反射する
+	bool bUsedTilt = false;
+	if (Hit.GetComponent() && Hit.GetComponent()->ComponentHasTag(TEXT("Player")))
+	{
+		if (const ABreakoutPaddle* Paddle = Cast<ABreakoutPaddle>(Hit.GetActor()))
+		{
+			bool bTop = false;
+			FVector OutNormal;
+			Paddle->GetTopNormal(Hit.ImpactPoint, Hit.ImpactNormal, bTop, OutNormal);
+			if (bTop)
+			{
+				Direction = ClampDirection(UKismetMathLibrary::MirrorVectorByNormal(Direction, OutNormal));
+				bUsedTilt = true;
+			}
+		}
+	}
+	if (!bUsedTilt)
+	{
+		Direction = UKismetMathLibrary::MirrorVectorByNormal(Direction, Hit.ImpactNormal);
+	}
 	Direction.X = 0.0f;
 
 	// 当たった相手が Block なら壊す（Hit イベントに頼らず直接呼ぶ）
@@ -63,6 +83,15 @@ void ABreakoutBall::Bounce(const FHitResult& Hit)
 	{
 		UGameplayStatics::PlaySound2D(this, KnockSound);
 	}
+}
+
+FVector ABreakoutBall::ClampDirection(const FVector& InDirection) const
+{
+	// 縦横を入れ替えて atan2 し、真上を 0 度にする（-180 度付近で逆向きに飛ぶのを防ぐ）
+	const float Angle = FMath::RadiansToDegrees(FMath::Atan2(InDirection.Y, InDirection.Z));
+	const float Limit = 90.0f - MinHorizontalAngleDeg;
+	const float Clamped = FMath::DegreesToRadians(FMath::Clamp(Angle, -Limit, Limit));
+	return FVector(0.0f, FMath::Sin(Clamped), FMath::Cos(Clamped));
 }
 
 void ABreakoutBall::OnSphereBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)

@@ -31,6 +31,14 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ball")
 	TObjectPtr<USoundBase> KnockSound;
 
+	// 反射後の向きが水平に近すぎないよう、水平からこの角度（度）以上は上を向かせる
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ball")
+	float MinHorizontalAngleDeg = 20.0f;
+
+	// 上向きを 0 度とした角度で向きを制限する（スライドの ClampDirection）
+	UFUNCTION(BlueprintCallable, Category = "Ball")
+	FVector ClampDirection(const FVector& InDirection) const;
+
 	virtual void Tick(float DeltaSeconds) override;
 
 protected:
