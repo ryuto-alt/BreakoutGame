@@ -46,7 +46,7 @@ ND1 ブロック崩し（Unreal Engine 5.8）。
 
 - Block に `Hp`（レベル上で個別に設定）。当たるたびに -1 して `ReloadHp`、0 以下で壊れる
   - `UTextRenderComponent`（黒、WorldSize 150、(-51,0,0)・Yaw 180）で残り Hp を表示。Cube はスケールされているので、文字は Root の子にしている
-  - `BlockMaterial`（VectorParameter `BaseColor`）を `OnConstruction` で動的マテリアルにし、`ColorTable[Hp-1]`（水色・緑・黄・橙・赤の5色）を設定
+  - `BlockMaterial`（VectorParameter `BaseColor`）を `OnConstruction` で動的マテリアルにし、`ColorTable[Hp-1]`（緑・黄・橙・赤・紫の5色）を設定
 - SE / BGM：`Tools/gen_sounds.py`（標準ライブラリだけ）で `Tools/SourceAudio/Breakout_SE_Knock.wav` / `Breakout_BGM.wav` を生成し、`gen_content.py` が `/Game/Sounds` にインポート（BGM は Looping）
   - Ball は反射のたびに `PlaySound2D`。BGM は SoundCue をレベルに置く代わりに GameManager の BeginPlay で `SpawnSound2D`
   - 元のスライドは ogg + SoundCue だが、ここでは生成した wav を直接使っている

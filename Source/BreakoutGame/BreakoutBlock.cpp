@@ -37,13 +37,13 @@ ABreakoutBlock::ABreakoutBlock()
 	HpText->SetText(FText::AsNumber(3));
 	HpText->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
-	// Hp 1〜5：水色、緑、黄、橙、赤
+	// Hp 1〜5：緑、黄、橙、赤、紫（空の青に埋もれない色）
 	ColorTable = {
-		FColor(80, 220, 255),
-		FColor(90, 220, 90),
+		FColor(70, 210, 90),
 		FColor(250, 230, 60),
-		FColor(255, 150, 40),
-		FColor(240, 60, 60),
+		FColor(255, 145, 30),
+		FColor(235, 50, 50),
+		FColor(170, 70, 225),
 	};
 }
 
