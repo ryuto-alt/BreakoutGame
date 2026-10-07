@@ -153,6 +153,10 @@ def main():
     bp_folder = "/Game/Blueprints"
     paddle = make_bp("Paddle", bp_folder, native("BreakoutPaddle"))
     ball = make_bp("Ball", bp_folder, native("BreakoutBall"))
+    block = gm = None
+    if STEP >= 2:
+        block = make_bp("Block", bp_folder, native("BreakoutBlock"))
+        gm = make_bp("GameManager", bp_folder, native("BreakoutGameManager"))
     gamemode = make_bp("BreakoutGame", bp_folder, native("BreakoutGameModeBase"))
 
     actions, imc = make_input_assets()
@@ -161,15 +165,28 @@ def main():
         cdo(paddle).set_editor_property("move_action", actions["IA_Move"])
     compile_save(paddle)
     compile_save(ball)
+    for bp in (block, gm):
+        if bp:
+            compile_save(bp)
 
     cdo(gamemode).set_editor_property("default_pawn_class", paddle.generated_class())
     compile_save(gamemode)
 
     classes = {"Paddle": paddle.generated_class(), "Ball": ball.generated_class(), "GameMode": gamemode.generated_class()}
+    if STEP >= 2:
+        classes["Block"] = block.generated_class()
+        classes["GameManager"] = gm.generated_class()
 
     def level1_extra(world):
-        if STEP == 1:
+        if STEP <= 2:
             spawn(classes["Ball"], (0, 0, 1000), label="Ball")
+        if STEP >= 2:
+            spawn(classes["GameManager"], (0, 0, 0), label="GameManager")
+            spawn(native("MissArea"), (0, 0, 120), label="MissArea")
+            # 2段 x 3個（自動プレイで30秒ほどでクリアできる配置）
+            for row, z in enumerate((4500, 4200)):
+                for col, y in enumerate((-750, 0, 750)):
+                    spawn(classes["Block"], (0, y, z), label="Block_%d_%d" % (row, col), folder="Blocks")
 
     build_level("Level1", classes, level1_extra)
     log("done step %d" % STEP)

@@ -36,6 +36,7 @@ void ABreakoutPaddle::BeginPlay()
 	Super::BeginPlay();
 
 	bAutoPlay = FParse::Param(FCommandLine::Get(), TEXT("autoplay"));
+	bAutoMiss = FParse::Param(FCommandLine::Get(), TEXT("automiss"));
 
 	EnsureInputAssets();
 	if (APlayerController* PC = Cast<APlayerController>(GetController()))
@@ -105,6 +106,24 @@ void ABreakoutPaddle::UpdateAutoPlay(float DeltaSeconds)
 	}
 	if (!Target)
 	{
+		return;
+	}
+	if (bAutoMiss)
+	{
+		// 落下中のボールの着地点を予測し、反対側の端へ逃げる
+		if (Target->Direction.Z < 0.0f)
+		{
+			const FVector Loc = Target->GetActorLocation();
+			const float Unfolded = Loc.Y + (Target->Direction.Y / -Target->Direction.Z) * (Loc.Z - 200.0f);
+			const float Width = 2900.0f;
+			float U = FMath::Fmod(Unfolded + 1450.0f, Width * 2.0f);
+			if (U < 0.0f) U += Width * 2.0f;
+			if (U > Width) U = Width * 2.0f - U;
+			const float Landing = U - 1450.0f;
+			MissTargetY = Landing >= 0.0f ? -1000.0f : 1000.0f;
+		}
+		const float MissDiff = MissTargetY - GetActorLocation().Y;
+		AddActorWorldOffset(FVector::RightVector * FMath::Clamp(MissDiff / 100.0f, -1.0f, 1.0f) * Speed * DeltaSeconds, true);
 		return;
 	}
 	if (Target->Direction.Z > 0.0f)

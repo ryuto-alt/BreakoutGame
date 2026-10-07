@@ -1,6 +1,9 @@
 #include "BreakoutBall.h"
 
+#include "BreakoutBlock.h"
+#include "BreakoutGameManager.h"
 #include "Components/StaticMeshComponent.h"
+#include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "UObject/ConstructorHelpers.h"
 
@@ -17,6 +20,8 @@ ABreakoutBall::ABreakoutBall()
 	}
 	Sphere->SetCollisionProfileName(TEXT("BlockAll"));
 	Sphere->SetMobility(EComponentMobility::Movable);
+	Sphere->SetGenerateOverlapEvents(true);
+	Sphere->OnComponentBeginOverlap.AddDynamic(this, &ABreakoutBall::OnSphereBeginOverlap);
 }
 
 void ABreakoutBall::Tick(float DeltaSeconds)
@@ -46,4 +51,22 @@ void ABreakoutBall::Bounce(const FHitResult& Hit)
 {
 	Direction = UKismetMathLibrary::MirrorVectorByNormal(Direction, Hit.ImpactNormal);
 	Direction.X = 0.0f;
+
+	// 当たった相手が Block なら壊す（Hit イベントに頼らず直接呼ぶ）
+	if (ABreakoutBlock* Block = Cast<ABreakoutBlock>(Hit.GetActor()))
+	{
+		Block->OnBallHit();
+	}
+}
+
+void ABreakoutBall::OnSphereBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+{
+	if (OtherComp && OtherComp->ComponentHasTag(TEXT("MissArea")))
+	{
+		if (ABreakoutGameManager* GM = Cast<ABreakoutGameManager>(UGameplayStatics::GetActorOfClass(this, ABreakoutGameManager::StaticClass())))
+		{
+			GM->MissCount();
+		}
+		Destroy();
+	}
 }

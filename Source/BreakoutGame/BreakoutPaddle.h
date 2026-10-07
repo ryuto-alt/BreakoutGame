@@ -41,6 +41,9 @@ protected:
 
 	// 録画用の自動操作（起動オプション -autoplay）。ボールを追いかけて打ち返す
 	bool bAutoPlay = false;
+	// -automiss: わざとボールから逃げる（ミスのデモ用）
+	bool bAutoMiss = false;
+	float MissTargetY = 0.0f;
 	float AutoAimOffset = 0.0f;
 	void UpdateAutoPlay(float DeltaSeconds);
 
