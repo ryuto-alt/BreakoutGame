@@ -76,3 +76,13 @@ ND1 ブロック崩し（Unreal Engine 5.8）。
 - アイテムは見やすいよう Sphere のスケールを 1.2 にしている（ボールより少し大きい）
 - 録画：自動プレイは、どのボールよりも低い位置にアイテムがあれば受けに行く。ブロックの落とす乱数は `-autoseed=N` で固定される
 - `gen_content.py`：`BreakoutGameInstance` は `DefaultEngine.ini` で起動時に読まれるため、既にあれば作り直さない
+
+## 01_07 タイトル
+
+- `/Game/Maps/TitleLevel`：他のレベルと同じライト・空・外壁・カメラに、背景のブロックを並べたタイトル。GameMode は `ABreakoutTitleGameMode`（パドルを出さない）
+- `ABreakoutTitleManager`（レベルに1つ配置）：`UBreakoutTitleWidget` を作って表示し、Space（`IA_Action`、`Started`）で `NextLevelName`（既定 `Level1`）を開く。スライドではレベルブループリントの BeginPlay（CreateWidget）と SpaceBar キーイベントだった部分を C++ のアクタに置き換えている。新しいゲームの開始なので持ち越しボール数は -1 に戻す
+- `UBreakoutTitleWidget`：「BREAKOUT」（ふわふわ上下）と、点滅する「Push SPACE」。標準フォントは日本語を含まないので英語表記にしている
+- 01_08（パッケージ化）の準備：TitleManager の BeginPlay で `UGameUserSettings` を Windowed 1280x720 にして `ApplySettings`。エディタ起動と、録画（`-dumpmovie` / `-uiframes` / `-benchmark`）では行わず、録画は 960x540 のまま
+- `DefaultEngine.ini`：`GameDefaultMap` を `TitleLevel` に変更（`EditorStartupMap` は Level1 のまま）
+- Level2 のクリア後は `TitleLevel` へ戻る
+- 録画：自動プレイはタイトルで約2秒後に Space を押す

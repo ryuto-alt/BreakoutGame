@@ -157,7 +157,7 @@ LAYOUT_LEVEL1 = [(-750, 3000, 1), (0, 3000, 3), (750, 3000, 2)]
 LAYOUT_LEVEL2 = [(y, 4500, hp) for y, hp in zip((-900, -300, 300, 900), (4, 2, 2, 4))] +                 [(y, 4200, hp) for y, hp in zip((-600, 0, 600), (3, 5, 3))]
 
 
-def build_level(name, classes, setup_extra=None):
+def build_level(name, classes, setup_extra=None, game_mode="GameMode"):
     path = "/Game/Maps/" + name
     recreate(path)
     world = unreal.EditorLoadingAndSavingUtils.new_blank_map(False)
@@ -185,7 +185,7 @@ def build_level(name, classes, setup_extra=None):
         setup_extra(world)
 
     ws = unreal.EditorLevelLibrary.get_editor_world().get_world_settings()
-    ws.set_editor_property("default_game_mode", classes["GameMode"])
+    ws.set_editor_property("default_game_mode", classes[game_mode])
     unreal.EditorLoadingAndSavingUtils.save_map(unreal.EditorLevelLibrary.get_editor_world(), path)
     log("saved level " + path)
 
@@ -271,7 +271,21 @@ def main():
 
     if STEP >= 4:
         build_level("Level1", classes, level_extra(LAYOUT_LEVEL1, "Level2"))
-        build_level("Level2", classes, level_extra(LAYOUT_LEVEL2, "Level1"))
+        # 最後のレベルのあとはタイトルへ戻る
+        build_level("Level2", classes, level_extra(LAYOUT_LEVEL2, "TitleLevel" if STEP >= 7 else "Level1"))
+        if STEP >= 7:
+            classes["TitleGameMode"] = native("BreakoutTitleGameMode")
+
+            def title_extra(world):
+                # 背景にブロックを並べる（数えるだけで GameManager はいない）
+                spawn_blocks(classes["Block"], LAYOUT_LEVEL2)
+                tm = spawn(native("BreakoutTitleManager"), (0, 0, 0), label="TitleManager")
+                tm.set_editor_property("next_level_name", "Level1")
+                if imc:
+                    tm.set_editor_property("input_mapping_context", imc)
+                    tm.set_editor_property("action_action", actions["IA_Action"])
+
+            build_level("TitleLevel", classes, title_extra, game_mode="TitleGameMode")
     else:
         build_level("Level1", classes, level1_extra)
     log("done step %d" % STEP)
