@@ -53,8 +53,12 @@ protected:
 	// -automiss: わざとボールから逃げる（ミスのデモ用）
 	bool bAutoMiss = false;
 	float MissTargetY = 0.0f;
+	// 自動プレイの乱数（-autoseed=N で固定。同じ値なら同じ動きになる）
+	FRandomStream AutoRandom;
 	// ボールがない時間（自動で Space を押す用）
 	float IdleTime = 0.0f;
+	// クリア後の経過時間（自動で次のレベルへ進む用）
+	float ClearedTime = 0.0f;
 	float AutoAimOffset = 0.0f;
 	void UpdateAutoPlay(float DeltaSeconds);
 

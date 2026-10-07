@@ -5,6 +5,7 @@
 #include "BreakoutGameManager.generated.h"
 
 class UUserWidget;
+class USoundBase;
 class ABreakoutBall;
 
 // ブロック数・クリア・ゲームオーバー・残ボールを管理する（スライドの「GameManager」）
@@ -47,6 +48,10 @@ public:
 	UFUNCTION(BlueprintPure, Category = "GameManager")
 	int32 GetLeftBallNum() const { return LeftBallNum; }
 
+	// クリア後、次のレベルへ（残りボール数を GameInstance 経由で持ち越す）
+	UFUNCTION(BlueprintCallable, Category = "GameManager")
+	void OpenNextLevel();
+
 	// 今のレベルを読み直す
 	UFUNCTION(BlueprintCallable, Category = "GameManager")
 	void LevelReset();
@@ -73,6 +78,17 @@ public:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "GameManager")
 	bool bIsGameOver = false;
+
+	// クリア後に Space で開くレベル名（レベル上のインスタンスで指定する）
+	UPROPERTY(EditInstanceOnly, BlueprintReadWrite, Category = "GameManager")
+	FName NextLevelName;
+
+	// BGM（Breakout_BGM）。レベルにドラッグ配置していた SoundCue の代わり
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "GameManager|Sound")
+	TObjectPtr<USoundBase> BGMSound;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "GameManager|Sound")
+	float BGMVolume = 0.5f;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "GameManager|Class")
 	TSubclassOf<ABreakoutBall> BallClass;

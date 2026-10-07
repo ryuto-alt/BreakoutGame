@@ -6,6 +6,7 @@
 
 class UStaticMeshComponent;
 class UPrimitiveComponent;
+class USoundBase;
 
 // 跳ね返るボール（スライドの「Ball」）
 UCLASS()
@@ -25,6 +26,10 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ball")
 	float Speed = 1000.0f;
+
+	// 反射のたびに鳴らす SE（Breakout_SE_Knock）
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ball")
+	TObjectPtr<USoundBase> KnockSound;
 
 	virtual void Tick(float DeltaSeconds) override;
 

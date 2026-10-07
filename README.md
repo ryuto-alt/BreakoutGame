@@ -41,3 +41,18 @@ ND1 ブロック崩し（Unreal Engine 5.8）。
 - 残り0でミスすると GameOver（白→赤を2秒）と「Push SPACE to Restart」を表示
 - 左上の「LeftBall : n」は `UBreakoutGameInfoWidget`。スライドではレベルブループリントの BeginPlay で作っていたが、C++ ではレベルBPを使わず GameManager の BeginPlay で作成。Text のバインドは NativeTick で毎フレーム更新して同等にしている
 - 録画：`-automiss` でボールを3回ミス → ゲームオーバー → 自動で Space を押して再開
+
+## 01_04 耐久値・色・音・次レベル・ボール持ち越し
+
+- Block に `Hp`（レベル上で個別に設定）。当たるたびに -1 して `ReloadHp`、0 以下で壊れる
+  - `UTextRenderComponent`（黒、WorldSize 150、(-51,0,0)・Yaw 180）で残り Hp を表示。Cube はスケールされているので、文字は Root の子にしている
+  - `BlockMaterial`（VectorParameter `BaseColor`）を `OnConstruction` で動的マテリアルにし、`ColorTable[Hp-1]`（水色・緑・黄・橙・赤の5色）を設定
+- SE / BGM：`Tools/gen_sounds.py`（標準ライブラリだけ）で `Tools/SourceAudio/Breakout_SE_Knock.wav` / `Breakout_BGM.wav` を生成し、`gen_content.py` が `/Game/Sounds` にインポート（BGM は Looping）
+  - Ball は反射のたびに `PlaySound2D`。BGM は SoundCue をレベルに置く代わりに GameManager の BeginPlay で `SpawnSound2D`
+  - 元のスライドは ogg + SoundCue だが、ここでは生成した wav を直接使っている
+- `NextLevelName`（GameManager のインスタンスで指定）。`Action` は ゲームオーバー → やり直し / クリア済み → `OpenNextLevel` / それ以外 → `SpawnBall`
+- `UBreakoutGameInstance`（BP `BreakoutGameInstance`、`DefaultEngine.ini` の `GameInstanceClass` に設定）：`LeftBallNum`（既定 -1）と `IsValidBallNum`。`OpenNextLevel` で残りボールを入れ、次レベルの GameManager が BeginPlay で受け取る
+  - スライドは `LeftBallNum + 1`（場のボール分）だが、場にボールがなければ足さないようにしている
+  - ゲームオーバーからのやり直しは持ち越しを -1 に戻し、レベルの既定値から始める
+- Level1（Hp 1〜3 の3個、次は Level2）、Level2（Hp 2〜5 の7個、次は Level1）。配置は `gen_content.py` の `LAYOUT_LEVEL1/2`
+- 録画用オプション：`-startballs=N`（最初のレベルの残りボール数）、`-autoseed=N`（自動プレイの乱数を固定）。クリア後は自動プレイが約2秒後に Space を押して次のレベルへ進む

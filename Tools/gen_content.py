@@ -114,6 +114,49 @@ def spawn_cube(label, loc, scale, folder="Walls", color=None):
     return a
 
 
+# ---------------------------------------------------------------- アセット
+def make_block_material():
+    """VectorParameter「BaseColor」を BaseColor につないだ BlockMaterial"""
+    path = "/Game/Materials/BlockMaterial"
+    recreate(path)
+    mat = asset_tools.create_asset("BlockMaterial", "/Game/Materials", unreal.Material, unreal.MaterialFactoryNew())
+    mel = unreal.MaterialEditingLibrary
+    p = mel.create_material_expression(mat, unreal.MaterialExpressionVectorParameter, -400, 0)
+    p.set_editor_property("parameter_name", "BaseColor")
+    p.set_editor_property("default_value", unreal.LinearColor(1.0, 1.0, 1.0, 1.0))
+    mel.connect_material_property(p, "", unreal.MaterialProperty.MP_BASE_COLOR)
+    mel.recompile_material(mat)
+    eal.save_loaded_asset(mat)
+    log("created material " + path)
+    return mat
+
+
+def import_sound(name, filename, looping=False):
+    path = "/Game/Sounds/" + name
+    recreate(path)
+    task = unreal.AssetImportTask()
+    task.set_editor_property("filename", os.path.join(unreal.Paths.project_dir(), "Tools", "SourceAudio", filename))
+    task.set_editor_property("destination_path", "/Game/Sounds")
+    task.set_editor_property("destination_name", name)
+    task.set_editor_property("replace_existing", True)
+    task.set_editor_property("automated", True)
+    task.set_editor_property("save", True)
+    asset_tools.import_asset_tasks([task])
+    snd = unreal.load_asset(path)
+    if snd is None:
+        raise RuntimeError("sound import failed: " + filename)
+    if looping:
+        snd.set_editor_property("looping", True)
+    eal.save_loaded_asset(snd)
+    log("imported sound " + path)
+    return snd
+
+
+# ブロック配置（y, z, hp）
+LAYOUT_LEVEL1 = [(-750, 3000, 1), (0, 3000, 3), (750, 3000, 2)]
+LAYOUT_LEVEL2 = [(y, 4500, hp) for y, hp in zip((-900, -300, 300, 900), (4, 2, 2, 4))] +                 [(y, 4200, hp) for y, hp in zip((-600, 0, 600), (3, 5, 3))]
+
+
 def build_level(name, classes, setup_extra=None):
     path = "/Game/Maps/" + name
     recreate(path)
@@ -152,6 +195,12 @@ def main():
         recreate("/Game/Maps/" + lv)
     bp_folder = "/Game/Blueprints"
     paddle = make_bp("Paddle", bp_folder, native("BreakoutPaddle"))
+    if STEP >= 4:
+        make_bp("BreakoutGameInstance", bp_folder, native("BreakoutGameInstance"))
+        compile_save(unreal.load_asset(bp_folder + "/BreakoutGameInstance"))
+        block_mat = make_block_material()
+        knock = import_sound("Breakout_SE_Knock", "Breakout_SE_Knock.wav")
+        bgm = import_sound("Breakout_BGM", "Breakout_BGM.wav", looping=True)
     ball = make_bp("Ball", bp_folder, native("BreakoutBall"))
     block = gm = None
     if STEP >= 2:
@@ -170,6 +219,10 @@ def main():
     if gm:
         # GameManager が生成するボールは BP の Ball
         cdo(gm).set_editor_property("ball_class", ball.generated_class())
+    if STEP >= 4:
+        cdo(block).set_editor_property("block_material", block_mat)
+        cdo(ball).set_editor_property("knock_sound", knock)
+        cdo(gm).set_editor_property("bgm_sound", bgm)
     for bp in (block, gm):
         if bp:
             compile_save(bp)
@@ -182,7 +235,15 @@ def main():
         classes["Block"] = block.generated_class()
         classes["GameManager"] = gm.generated_class()
 
-    def level1_extra(world):
+    def spawn_blocks(block_cls, layout):
+        for i, (y, z, hp) in enumerate(layout):
+            b = spawn(block_cls, (0, y, z), label="Block_%d" % i, folder="Blocks")
+            b.set_editor_property("hp", hp)
+
+    def level_extra(layout, next_level):
+        return lambda world: level1_extra(world, layout, next_level)
+
+    def level1_extra(world, layout=None, next_level=None):
         if STEP <= 2:
             spawn(classes["Ball"], (0, 0, 1000), label="Ball")
         if STEP >= 2:
@@ -192,12 +253,20 @@ def main():
                 respawn = spawn(unreal.TargetPoint, (0, 0, 1000), label="RespawnLocationActor")
                 gm_actor.set_editor_property("spawn_location_actor", respawn)
             spawn(native("MissArea"), (0, 0, 120), label="MissArea")
-            # 2段 x 3個（自動プレイで30秒ほどでクリアできる配置）
-            for row, z in enumerate((4500, 4200)):
-                for col, y in enumerate((-750, 0, 750)):
-                    spawn(classes["Block"], (0, y, z), label="Block_%d_%d" % (row, col), folder="Blocks")
+            if STEP >= 4:
+                spawn_blocks(classes["Block"], layout)
+                gm_actor.set_editor_property("next_level_name", next_level)
+            else:
+                # 2段 x 3個（自動プレイで30秒ほどでクリアできる配置）
+                for row, z in enumerate((4500, 4200)):
+                    for col, y in enumerate((-750, 0, 750)):
+                        spawn(classes["Block"], (0, y, z), label="Block_%d_%d" % (row, col), folder="Blocks")
 
-    build_level("Level1", classes, level1_extra)
+    if STEP >= 4:
+        build_level("Level1", classes, level_extra(LAYOUT_LEVEL1, "Level2"))
+        build_level("Level2", classes, level_extra(LAYOUT_LEVEL2, "Level1"))
+    else:
+        build_level("Level1", classes, level1_extra)
     log("done step %d" % STEP)
 
 

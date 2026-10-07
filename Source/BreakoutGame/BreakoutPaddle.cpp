@@ -39,6 +39,9 @@ void ABreakoutPaddle::BeginPlay()
 
 	bAutoPlay = FParse::Param(FCommandLine::Get(), TEXT("autoplay"));
 	bAutoMiss = FParse::Param(FCommandLine::Get(), TEXT("automiss"));
+	int32 AutoSeed = 1;
+	FParse::Value(FCommandLine::Get(), TEXT("autoseed="), AutoSeed);
+	AutoRandom.Initialize(AutoSeed);
 
 	GameManager = Cast<ABreakoutGameManager>(UGameplayStatics::GetActorOfClass(this, ABreakoutGameManager::StaticClass()));
 
@@ -115,6 +118,18 @@ void ABreakoutPaddle::Tick(float DeltaSeconds)
 
 void ABreakoutPaddle::UpdateAutoPlay(float DeltaSeconds)
 {
+	// クリアしたら少し待って Space を押す（次のレベルへ）
+	if (GameManager && GameManager->bIsCleared)
+	{
+		ClearedTime += DeltaSeconds;
+		if (ClearedTime >= 2.0f)
+		{
+			ClearedTime = 0.0f;
+			GameManager->Action();
+			return;
+		}
+	}
+
 	// 一番低い位置にあるボールを追う
 	const ABreakoutBall* Target = nullptr;
 	for (TActorIterator<ABreakoutBall> It(GetWorld()); It; ++It)
@@ -158,7 +173,8 @@ void ABreakoutPaddle::UpdateAutoPlay(float DeltaSeconds)
 	if (Target->Direction.Z > 0.0f)
 	{
 		// 上に向かっている間に、次に当てる位置を少しずらしておく
-		AutoAimOffset = FMath::FRandRange(-300.0f, 300.0f);
+		// ときどき端（角）で受けて、反射の向きを変える（軌道が同じ周回にならないように）
+		AutoAimOffset = AutoRandom.FRand() < 0.5f ? AutoRandom.FRandRange(-250.0f, 250.0f) : (AutoRandom.FRand() < 0.5f ? -1.0f : 1.0f) * AutoRandom.FRandRange(450.0f, 510.0f);
 	}
 	const float Diff = Target->GetActorLocation().Y + AutoAimOffset - GetActorLocation().Y;
 	const float Axis = FMath::Clamp(Diff / 100.0f, -1.0f, 1.0f);

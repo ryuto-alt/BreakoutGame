@@ -3,12 +3,15 @@
 #include "BreakoutBall.h"
 #include "BreakoutClearWidget.h"
 #include "BreakoutGameInfoWidget.h"
+#include "BreakoutGameInstance.h"
 #include "BreakoutGameOverWidget.h"
 #include "Blueprint/UserWidget.h"
 #include "Components/SceneComponent.h"
 #include "Engine/World.h"
 #include "GameFramework/PlayerController.h"
 #include "Kismet/GameplayStatics.h"
+#include "Misc/CommandLine.h"
+#include "Sound/SoundBase.h"
 
 ABreakoutGameManager::ABreakoutGameManager()
 {
@@ -26,6 +29,29 @@ void ABreakoutGameManager::BeginPlay()
 {
 	Super::BeginPlay();
 
+	// 前のレベルから残りボール数を受け取る（未設定の -1 のときは既定値のまま）
+	if (UBreakoutGameInstance* GI = Cast<UBreakoutGameInstance>(GetGameInstance()))
+	{
+		if (GI->IsValidBallNum())
+		{
+			LeftBallNum = GI->LeftBallNum;
+		}
+		else
+		{
+			// 録画用：-startballs=5 で最初のレベルの残りボール数を変える（持ち越しを見やすくする）
+			int32 StartBalls = 0;
+			if (FParse::Value(FCommandLine::Get(), TEXT("startballs="), StartBalls))
+			{
+				LeftBallNum = StartBalls;
+			}
+		}
+	}
+
+	if (BGMSound)
+	{
+		UGameplayStatics::SpawnSound2D(this, BGMSound, BGMVolume);
+	}
+
 	// スライドではレベルブループリントの BeginPlay で作っていた「LeftBall」表示
 	CreateAndAddWidget(GameInfoWidgetClass);
 }
@@ -40,7 +66,7 @@ void ABreakoutGameManager::AddBrokenBlockNum()
 {
 	++BrokenBlockNum;
 	UE_LOG(LogTemp, Log, TEXT("BrokenBlockNum : %d"), BrokenBlockNum);
-	UE_LOG(LogTemp, Log, TEXT("LeftBlockNum : %d"), GetLeftBlockNum());
+	UE_LOG(LogTemp, Log, TEXT("LeftBlockNum : %d (%.1f s)"), GetLeftBlockNum(), GetWorld()->GetTimeSeconds());
 	if (GetLeftBlockNum() == 0)
 	{
 		ViewClearWidget();
@@ -109,14 +135,38 @@ void ABreakoutGameManager::Action()
 	{
 		LevelReset();
 	}
+	else if (bIsCleared)
+	{
+		OpenNextLevel();
+	}
 	else
 	{
 		SpawnBall();
 	}
 }
 
+void ABreakoutGameManager::OpenNextLevel()
+{
+	if (NextLevelName.IsNone())
+	{
+		return;
+	}
+	// 場に出ているボールも残りに戻して持ち越す（スライドの「+1」）
+	if (UBreakoutGameInstance* GI = Cast<UBreakoutGameInstance>(GetGameInstance()))
+	{
+		GI->LeftBallNum = LeftBallNum + (bIsBallSpawned ? 1 : 0);
+	}
+	UE_LOG(LogTemp, Log, TEXT("OpenNextLevel : %s"), *NextLevelName.ToString());
+	UGameplayStatics::OpenLevel(this, NextLevelName);
+}
+
 void ABreakoutGameManager::LevelReset()
 {
 	UE_LOG(LogTemp, Log, TEXT("LevelReset"));
+	// やり直しは持ち越しをやめて、レベルの既定の残りボール数から始める
+	if (UBreakoutGameInstance* GI = Cast<UBreakoutGameInstance>(GetGameInstance()))
+	{
+		GI->LeftBallNum = -1;
+	}
 	UGameplayStatics::OpenLevel(this, FName(*UGameplayStatics::GetCurrentLevelName(this, true)));
 }
