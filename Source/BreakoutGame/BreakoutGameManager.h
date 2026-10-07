@@ -41,6 +41,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "GameManager")
 	void SpawnBall();
 
+	// ボールを無条件で1個増やす（アイテム取得時。LeftBallNum は減らさない）
+	UFUNCTION(BlueprintCallable, Category = "GameManager")
+	void GenerateBall();
+
 	// Space キー：ゲームオーバーならやり直し、それ以外はボール発射
 	UFUNCTION(BlueprintCallable, Category = "GameManager")
 	void Action();
@@ -69,8 +73,9 @@ public:
 	UPROPERTY(EditInstanceOnly, BlueprintReadWrite, Category = "GameManager")
 	TObjectPtr<AActor> SpawnLocationActor;
 
+	// 今レベル内にあるボールの数
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "GameManager")
-	bool bIsBallSpawned = false;
+	int32 InGameBallNum = 0;
 
 	// 残りのボール数（レベル上で変更できる）
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GameManager")

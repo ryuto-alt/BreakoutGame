@@ -10,9 +10,7 @@ AMissArea::AMissArea()
 	RootComponent = Box;
 	Box->SetBoxExtent(FVector(40.0f, 1500.0f, 40.0f));
 	// 重なりだけ検知する
-	Box->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
-	Box->SetCollisionObjectType(ECC_WorldDynamic);
-	Box->SetCollisionResponseToAllChannels(ECR_Overlap);
+	Box->SetCollisionProfileName(TEXT("MissArea"));
 	Box->SetGenerateOverlapEvents(true);
 	Box->ComponentTags.Add(TEXT("MissArea"));
 }

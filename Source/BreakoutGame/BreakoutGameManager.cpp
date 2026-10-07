@@ -101,22 +101,36 @@ void ABreakoutGameManager::ViewGameOverWidget()
 
 void ABreakoutGameManager::MissCount()
 {
-	// ボールが消えたので、また発射できる
-	bIsBallSpawned = false;
-	UE_LOG(LogTemp, Log, TEXT("MissCount : LeftBallNum = %d"), LeftBallNum);
-
-	// 残りがなく、クリアもしていなければゲームオーバー
-	if (LeftBallNum <= 0 && !bIsCleared)
+	// クリア後に落ちたボールは数えない（次のレベルへ持ち越す）
+	if (!bIsCleared)
 	{
-		ViewGameOverWidget();
-		bIsGameOver = true;
+		--InGameBallNum;
+		UE_LOG(LogTemp, Log, TEXT("MissCount : InGameBallNum = %d, LeftBallNum = %d"), InGameBallNum, LeftBallNum);
+
+		// 場にも残りにもボールがなければゲームオーバー
+		if (LeftBallNum <= 0 && InGameBallNum <= 0)
+		{
+			ViewGameOverWidget();
+			bIsGameOver = true;
+		}
 	}
 }
 
 void ABreakoutGameManager::SpawnBall()
 {
-	// 同時に1個まで、残りがあるときだけ
-	if (bIsBallSpawned || LeftBallNum <= 0 || !BallClass)
+	// 場にボールがなく、残りがあるときだけ
+	if (InGameBallNum != 0 || LeftBallNum <= 0)
+	{
+		return;
+	}
+	GenerateBall();
+	--LeftBallNum;
+	UE_LOG(LogTemp, Log, TEXT("SpawnBall : LeftBallNum = %d"), LeftBallNum);
+}
+
+void ABreakoutGameManager::GenerateBall()
+{
+	if (!BallClass)
 	{
 		return;
 	}
@@ -124,9 +138,8 @@ void ABreakoutGameManager::SpawnBall()
 	FActorSpawnParameters Params;
 	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 	GetWorld()->SpawnActor<ABreakoutBall>(BallClass, FTransform(FRotator::ZeroRotator, Location, FVector::OneVector), Params);
-	bIsBallSpawned = true;
-	--LeftBallNum;
-	UE_LOG(LogTemp, Log, TEXT("SpawnBall : LeftBallNum = %d"), LeftBallNum);
+	++InGameBallNum;
+	UE_LOG(LogTemp, Log, TEXT("GenerateBall : InGameBallNum = %d"), InGameBallNum);
 }
 
 void ABreakoutGameManager::Action()
@@ -151,10 +164,10 @@ void ABreakoutGameManager::OpenNextLevel()
 	{
 		return;
 	}
-	// 場に出ているボールも残りに戻して持ち越す（スライドの「+1」）
+	// 場に出ているボールも残りに戻して持ち越す
 	if (UBreakoutGameInstance* GI = Cast<UBreakoutGameInstance>(GetGameInstance()))
 	{
-		GI->LeftBallNum = LeftBallNum + (bIsBallSpawned ? 1 : 0);
+		GI->LeftBallNum = LeftBallNum + InGameBallNum;
 	}
 	UE_LOG(LogTemp, Log, TEXT("OpenNextLevel : %s"), *NextLevelName.ToString());
 	UGameplayStatics::OpenLevel(this, NextLevelName);

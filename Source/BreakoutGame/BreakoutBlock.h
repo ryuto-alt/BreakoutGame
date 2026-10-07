@@ -10,6 +10,7 @@ class UTextRenderComponent;
 class UMaterialInterface;
 class UMaterialInstanceDynamic;
 class ABreakoutGameManager;
+class ABreakoutAddBallItem;
 
 // 壊せるブロック（スライドの「Block」）。耐久値 Hp を持ち、当たるたびに減って色が変わる
 UCLASS()
@@ -44,6 +45,13 @@ public:
 
 	UPROPERTY(Transient, VisibleAnywhere, BlueprintReadOnly, Category = "Block")
 	TObjectPtr<UMaterialInstanceDynamic> MaterialInstance;
+
+	// 壊れたときにボール追加アイテムを落とす確率（スライドでは Weight 0.5）
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Block", meta = (ClampMin = "0.0", ClampMax = "1.0"))
+	float ItemDropRate = 0.3f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Block")
+	TSubclassOf<ABreakoutAddBallItem> ItemClass;
 
 	// ボールが当たったときに Ball から呼ばれる
 	UFUNCTION(BlueprintCallable, Category = "Block")

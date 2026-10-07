@@ -8,6 +8,7 @@
 #include "InputModifiers.h"
 #include "GameFramework/PlayerController.h"
 #include "UObject/ConstructorHelpers.h"
+#include "BreakoutAddBallItem.h"
 #include "BreakoutBall.h"
 #include "BreakoutGameManager.h"
 #include "Kismet/GameplayStatics.h"
@@ -177,6 +178,25 @@ void ABreakoutPaddle::UpdateAutoPlay(float DeltaSeconds)
 		if (!Target || It->GetActorLocation().Z < Target->GetActorLocation().Z)
 		{
 			Target = *It;
+		}
+	}
+	// 落ちてくるアイテムが、どのボールより低い位置にあれば受けに行く
+	if (!bAutoMiss)
+	{
+		const ABreakoutAddBallItem* Item = nullptr;
+		for (TActorIterator<ABreakoutAddBallItem> It(GetWorld()); It; ++It)
+		{
+			if (!Item || It->GetActorLocation().Z < Item->GetActorLocation().Z)
+			{
+				Item = *It;
+			}
+		}
+		if (Item && (!Target || Item->GetActorLocation().Z < Target->GetActorLocation().Z))
+		{
+			const float ItemDiff = Item->GetActorLocation().Y - GetActorLocation().Y;
+			AddActorWorldOffset(FVector::RightVector * FMath::Clamp(ItemDiff / 100.0f, -1.0f, 1.0f) * Speed * DeltaSeconds, true);
+			IdleTime = 0.0f;
+			return;
 		}
 	}
 	if (!Target)

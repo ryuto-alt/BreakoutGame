@@ -1,6 +1,10 @@
 #include "BreakoutBlock.h"
 
+#include "BreakoutAddBallItem.h"
 #include "BreakoutGameManager.h"
+#include "Engine/World.h"
+#include "Math/RandomStream.h"
+#include "Misc/CommandLine.h"
 #include "Components/SceneComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/TextRenderComponent.h"
@@ -24,6 +28,7 @@ ABreakoutBlock::ABreakoutBlock()
 	}
 	Cube->SetRelativeScale3D(FVector(1.0f, 5.0f, 1.5f));
 	Cube->SetCollisionProfileName(TEXT("BlockAll"));
+	ItemClass = ABreakoutAddBallItem::StaticClass();
 
 	// 立方体の手前（カメラ側 = -X）の面に、スケールの影響を受けないよう Root の子として置く
 	HpText = CreateDefaultSubobject<UTextRenderComponent>(TEXT("HpText"));
@@ -93,6 +98,28 @@ void ABreakoutBlock::Break()
 	if (ABreakoutGameManager* GM = Cast<ABreakoutGameManager>(UGameplayStatics::GetActorOfClass(this, ABreakoutGameManager::StaticClass())))
 	{
 		GM->AddBrokenBlockNum();
+	}
+
+	// 確率でアイテムを落とす（-autoseed のときは同じ結果になるよう乱数を固定）
+	static FRandomStream DropRandom;
+	static bool bDropRandomInit = false;
+	if (!bDropRandomInit)
+	{
+		bDropRandomInit = true;
+		int32 Seed = 0;
+		if (FParse::Value(FCommandLine::Get(), TEXT("autoseed="), Seed))
+		{
+			DropRandom.Initialize(Seed);
+		}
+		else
+		{
+			DropRandom.GenerateNewSeed();
+		}
+	}
+	if (ItemClass && DropRandom.FRand() < ItemDropRate)
+	{
+		GetWorld()->SpawnActor<ABreakoutAddBallItem>(ItemClass, GetActorTransform());
+		UE_LOG(LogTemp, Log, TEXT("DropItem (%.1f s)"), GetWorld()->GetTimeSeconds());
 	}
 	Destroy();
 }

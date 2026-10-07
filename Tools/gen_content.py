@@ -196,9 +196,12 @@ def main():
     bp_folder = "/Game/Blueprints"
     paddle = make_bp("Paddle", bp_folder, native("BreakoutPaddle"))
     if STEP >= 4:
-        make_bp("BreakoutGameInstance", bp_folder, native("BreakoutGameInstance"))
+        # GameInstance は DefaultEngine.ini で指定していて起動時に読み込まれるため、あるときは作り直さない
+        if not eal.does_asset_exist(bp_folder + "/BreakoutGameInstance"):
+            make_bp("BreakoutGameInstance", bp_folder, native("BreakoutGameInstance"))
         compile_save(unreal.load_asset(bp_folder + "/BreakoutGameInstance"))
         block_mat = make_block_material()
+        item = make_bp("AddBallItem", bp_folder, native("BreakoutAddBallItem")) if STEP >= 6 else None
         knock = import_sound("Breakout_SE_Knock", "Breakout_SE_Knock.wav")
         bgm = import_sound("Breakout_BGM", "Breakout_BGM.wav", looping=True)
     ball = make_bp("Ball", bp_folder, native("BreakoutBall"))
@@ -221,6 +224,10 @@ def main():
         cdo(gm).set_editor_property("ball_class", ball.generated_class())
     if STEP >= 4:
         cdo(block).set_editor_property("block_material", block_mat)
+        if item:
+            cdo(item).set_editor_property("item_material", block_mat)
+            cdo(block).set_editor_property("item_class", item.generated_class())
+            compile_save(item)
         cdo(ball).set_editor_property("knock_sound", knock)
         cdo(gm).set_editor_property("bgm_sound", bgm)
     for bp in (block, gm):

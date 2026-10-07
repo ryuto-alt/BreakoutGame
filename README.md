@@ -65,3 +65,14 @@ ND1 ブロック崩し（Unreal Engine 5.8）。
 - `ABreakoutBall`：コンポーネントタグ `Player` のパドルの天面に当たったときだけ、傾けた法線で反射 → `ClampDirection`（上向きを 0 度とした atan2 を `±(90 - MinHorizontalAngleDeg)` に制限、既定20度）。それ以外は通常の反射。SE は両方で鳴る
 - デバッグ：起動オプション `-debugnormals` で天面の法線を青い矢印21本で描画（既定はオフ。スライドでは確認後に Tick から外す）
 - 録画：自動プレイは受ける位置を 左端 → 中央 → 右端 と順番に変えて返す角度の違いを見せる
+
+## 01_06 アイテム（ボール追加）・コリジョン整理
+
+- `Config/DefaultEngine.ini` の `[/Script/Engine.CollisionProfile]` にオブジェクトチャンネル `Item`（既定 Ignore）/ `Ball`（Block）/ `MissArea`（Ignore）とプリセット `Item` / `Ball` / `MissArea` を追加し、`Pawn` は Item に Overlap（`EditProfiles`）。Ball は Ball と Item を無視するので、ボール同士はぶつからない
+  - 適用：MissArea ＝ `MissArea`、Paddle の Cube ＝ `Pawn`、Ball の Sphere ＝ `Ball`、アイテム ＝ `Item`
+- GameManager：`bIsBallSpawned` を `InGameBallNum`（場のボール数）に変更。`SpawnBall` は `InGameBallNum == 0 && LeftBallNum > 0`、`GenerateBall` は無条件で1個増やす（`LeftBallNum` を消費しない）。`MissCount` はクリア前だけ `InGameBallNum--` し、`LeftBallNum <= 0 && InGameBallNum <= 0` でゲームオーバー。`OpenNextLevel` は `LeftBallNum + InGameBallNum` を持ち越す
+- `ABreakoutAddBallItem`（BP `AddBallItem`）：Sphere が Root（タグ `Item`）、手前に「A」の TextRender。`Speed`（既定600）で真下に落下し、`MissArea` タグで消え、`Player` タグ（パドル）に触れると `GenerateBall` して消える。色は BlockMaterial の動的マテリアル
+- ブロックは壊れたとき `ItemDropRate`（既定 0.3、インスタンスで変更可）の確率でアイテムを落とす。スライドの数値は Weight 0.5（本文は10%）で食い違っているため、既定値は 0.3 にしている
+- アイテムは見やすいよう Sphere のスケールを 1.2 にしている（ボールより少し大きい）
+- 録画：自動プレイは、どのボールよりも低い位置にアイテムがあれば受けに行く。ブロックの落とす乱数は `-autoseed=N` で固定される
+- `gen_content.py`：`BreakoutGameInstance` は `DefaultEngine.ini` で起動時に読まれるため、既にあれば作り直さない

@@ -19,7 +19,7 @@ ABreakoutBall::ABreakoutBall()
 	{
 		Sphere->SetStaticMesh(SphereMesh.Object);
 	}
-	Sphere->SetCollisionProfileName(TEXT("BlockAll"));
+	Sphere->SetCollisionProfileName(TEXT("Ball"));
 	Sphere->SetMobility(EComponentMobility::Movable);
 	Sphere->SetGenerateOverlapEvents(true);
 	Sphere->OnComponentBeginOverlap.AddDynamic(this, &ABreakoutBall::OnSphereBeginOverlap);
