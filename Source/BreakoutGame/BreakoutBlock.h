@@ -54,7 +54,7 @@ public:
 
 	// 壊れたときにアイテムを落とす確率（スライドでは Weight 0.5）
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Block", meta = (ClampMin = "0.0", ClampMax = "1.0"))
-	float ItemDropRate = 0.3f;
+	float ItemDropRate = 0.6f;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Block")
 	TSubclassOf<ABreakoutAddBallItem> ItemClass;
@@ -79,8 +79,9 @@ public:
 protected:
 	virtual void BeginPlay() override;
 
-	// 壊れたときの共通処理（スコア・かけら・音・アイテム）
+	// 壊れたときの共通処理（スコア・演出・音・アイテム）
 	void Break();
-	void SpawnDebris();
 	void DropItem();
+	FLinearColor GetBaseColor() const;
+	FTimerHandle FlashTimer;
 };

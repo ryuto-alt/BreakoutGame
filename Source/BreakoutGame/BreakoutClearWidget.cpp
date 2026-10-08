@@ -72,6 +72,12 @@ void UBreakoutClearWidget::NativeTick(const FGeometry& MyGeometry, float InDelta
 	}
 	GameClearBox->SetRenderTranslation(FVector2D(0.0f, Y));
 
+	// 最初にぐっと大きく出てから、弾みながら落ち着く（ズームバウンス）
+	const float Zoom = FMath::Clamp(Elapsed / 0.55f, 0.0f, 1.0f);
+	const float Bounce = 1.0f + 0.9f * FMath::Pow(1.0f - Zoom, 2.0f) * FMath::Cos(Zoom * PI * 2.5f);
+	const float Scale = Elapsed < 0.55f ? FMath::Max(Bounce * Zoom + 0.0f, 0.05f) : 1.0f;
+	GameClearBox->SetRenderScale(FVector2D(Scale, Scale));
+
 	// 次へ進む案内は少し遅れて点滅
 	if (PushSpaceTextBox)
 	{

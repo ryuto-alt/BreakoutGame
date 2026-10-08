@@ -49,9 +49,11 @@ void ABreakoutPaddle::BeginPlay()
 
 	GameManager = Cast<ABreakoutGameManager>(UGameplayStatics::GetActorOfClass(this, ABreakoutGameManager::StaticClass()));
 
-	if (UMaterialInstanceDynamic* MID = Cube->CreateDynamicMaterialInstance(0, PaddleMaterial))
+	PaddleMID = Cube->CreateDynamicMaterialInstance(0, PaddleMaterial);
+	if (PaddleMID)
 	{
-		MID->SetVectorParameterValue(TEXT("BaseColor"), PaddleColor);
+		PaddleMID->SetVectorParameterValue(TEXT("BaseColor"), PaddleColor);
+		PaddleMID->SetScalarParameterValue(TEXT("Glow"), 2.6f);
 	}
 
 	EnsureInputAssets();
@@ -148,9 +150,26 @@ void ABreakoutPaddle::DrawDebugTopSurfaceNormals() const
 	}
 }
 
+void ABreakoutPaddle::OnBallHit()
+{
+	HitFlash = 1.0f;
+}
+
 void ABreakoutPaddle::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
+
+	// 当たった瞬間に白く光って、少しつぶれて戻る
+	if (HitFlash > 0.0f)
+	{
+		HitFlash = FMath::Max(0.0f, HitFlash - DeltaSeconds * 7.0f);
+		Cube->SetRelativeScale3D(FVector(1.0f, 10.0f + 0.8f * HitFlash, 1.0f - 0.35f * HitFlash));
+		if (PaddleMID)
+		{
+			PaddleMID->SetVectorParameterValue(TEXT("BaseColor"), FMath::Lerp(PaddleColor, FLinearColor::White, HitFlash));
+			PaddleMID->SetScalarParameterValue(TEXT("Glow"), 2.6f + 6.0f * HitFlash);
+		}
+	}
 
 	if (bDebugNormals)
 	{
@@ -193,7 +212,7 @@ void ABreakoutPaddle::UpdateAutoPlay(float DeltaSeconds)
 	if (GameManager && GameManager->bIsCleared)
 	{
 		ClearedTime += DeltaSeconds;
-		if (ClearedTime >= 2.0f)
+		if (ClearedTime >= 0.8f)
 		{
 			ClearedTime = 0.0f;
 			GameManager->Action();
@@ -221,7 +240,7 @@ void ABreakoutPaddle::UpdateAutoPlay(float DeltaSeconds)
 	{
 		// ボールがないとき：少し待って Space を押す（ゲームオーバー後は長めに待ってやり直し）
 		IdleTime += DeltaSeconds;
-		const float Wait = (GameManager && GameManager->bIsGameOver) ? 3.0f : 1.0f;
+		const float Wait = (GameManager && GameManager->bIsGameOver) ? 2.0f : 0.3f;
 		if (GameManager && IdleTime >= Wait)
 		{
 			IdleTime = 0.0f;

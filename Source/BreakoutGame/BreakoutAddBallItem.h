@@ -18,10 +18,11 @@ enum class EBreakoutItemType : uint8
 	AddBall UMETA(DisplayName = "A : ボール追加"),
 	Split UMETA(DisplayName = "S : 分裂"),
 	Pierce UMETA(DisplayName = "P : 貫通"),
+	Multi UMETA(DisplayName = "M : 5個発射"),
 };
 
 // ブロックから落ちてくるアイテム（スライドの AddBallItem）。パドルで受けると効果が出る
-//   A: ボールが1個増える（スライドどおり）  S: 場のボールがそれぞれ1個ずつ分裂  P: 数秒間ブロックを貫通
+//   A: ボールが1個増える（スライドどおり）  S: 場のボールがそれぞれ2個ずつ分裂  P: 数秒間ブロックを貫通  M: パドルから5個を扇状に発射
 UCLASS()
 class BREAKOUTGAME_API ABreakoutAddBallItem : public AActor
 {
@@ -42,7 +43,7 @@ public:
 
 	// 落下速度
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Item")
-	float Speed = 600.0f;
+	float Speed = 900.0f;
 
 	// BlockMaterial（VectorParameter BaseColor）を使って色を付ける
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item")

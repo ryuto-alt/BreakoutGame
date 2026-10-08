@@ -54,10 +54,16 @@ void ABreakoutAddBallItem::BeginPlay()
 		Color = FLinearColor(1.0f, 0.55f, 0.0f);
 		Letter = TEXT("P");
 	}
+	else if (ItemType == EBreakoutItemType::Multi)
+	{
+		Color = FLinearColor(0.55f, 0.4f, 1.0f);
+		Letter = TEXT("M");
+	}
 	LabelText->SetText(FText::FromString(Letter));
 	if (UMaterialInstanceDynamic* MID = Sphere->CreateDynamicMaterialInstance(0, ItemMaterial))
 	{
 		MID->SetVectorParameterValue(TEXT("BaseColor"), Color);
+		MID->SetScalarParameterValue(TEXT("Glow"), 3.2f);
 	}
 }
 

@@ -1,7 +1,6 @@
 #include "BreakoutBlock.h"
 
 #include "BreakoutAddBallItem.h"
-#include "BreakoutDebris.h"
 #include "BreakoutGameManager.h"
 #include "Components/SceneComponent.h"
 #include "Components/StaticMeshComponent.h"
@@ -90,6 +89,7 @@ void ABreakoutBlock::ReloadHp()
 		if (MaterialInstance)
 		{
 			MaterialInstance->SetVectorParameterValue(TEXT("BaseColor"), FLinearColor(0.16f, 0.17f, 0.2f));
+			MaterialInstance->SetScalarParameterValue(TEXT("Glow"), 0.9f);
 		}
 		return;
 	}
@@ -98,6 +98,7 @@ void ABreakoutBlock::ReloadHp()
 	if (MaterialInstance && ColorTable.IsValidIndex(Hp - 1))
 	{
 		MaterialInstance->SetVectorParameterValue(TEXT("BaseColor"), FLinearColor::FromSRGBColor(ColorTable[Hp - 1]));
+		MaterialInstance->SetScalarParameterValue(TEXT("Glow"), 1.15f);
 	}
 }
 
@@ -107,34 +108,33 @@ void ABreakoutBlock::OnBallHit()
 	{
 		return;
 	}
+	const FLinearColor HitColor = GetBaseColor();
 	--Hp;
 	ReloadHp();
 	if (ABreakoutGameManager* GM = Cast<ABreakoutGameManager>(UGameplayStatics::GetActorOfClass(this, ABreakoutGameManager::StaticClass())))
 	{
-		GM->AddScore(10);
+		GM->OnBlockHit(GetActorLocation(), HitColor);
 	}
 	if (Hp <= 0)
 	{
 		Break();
 	}
+	else if (MaterialInstance)
+	{
+		// 当たった瞬間だけ白く光る
+		MaterialInstance->SetVectorParameterValue(TEXT("BaseColor"), FLinearColor::White);
+		MaterialInstance->SetScalarParameterValue(TEXT("Glow"), 9.0f);
+		GetWorldTimerManager().SetTimer(FlashTimer, FTimerDelegate::CreateWeakLambda(this, [this]() { ReloadHp(); }), 0.06f, false);
+	}
 }
 
-void ABreakoutBlock::SpawnDebris()
+FLinearColor ABreakoutBlock::GetBaseColor() const
 {
-	FLinearColor Color = FLinearColor::White;
-	if (ColorTable.Num() > 0)
+	if (ColorTable.IsValidIndex(InitialHp - 1))
 	{
-		Color = FLinearColor::FromSRGBColor(ColorTable[FMath::Clamp(InitialHp - 1, 0, ColorTable.Num() - 1)]);
+		return FLinearColor::FromSRGBColor(ColorTable[InitialHp - 1]);
 	}
-	for (int32 i = 0; i < 16; ++i)
-	{
-		const FVector Offset(0.0f, FMath::FRandRange(-230.0f, 230.0f), FMath::FRandRange(-60.0f, 60.0f));
-		const FVector Velocity(0.0f, FMath::FRandRange(-900.0f, 900.0f), FMath::FRandRange(-200.0f, 1100.0f));
-		if (ABreakoutDebris* Debris = GetWorld()->SpawnActor<ABreakoutDebris>(ABreakoutDebris::StaticClass(), GetActorLocation() + Offset, FRotator::ZeroRotator))
-		{
-			Debris->Init(BlockMaterial, Color, Velocity);
-		}
-	}
+	return FLinearColor::White;
 }
 
 void ABreakoutBlock::DropItem()
@@ -155,12 +155,13 @@ void ABreakoutBlock::DropItem()
 			DropRandom.GenerateNewSeed();
 		}
 	}
-	if (!ItemClass || DropRandom.FRand() >= ItemDropRate)
+	// 録画用：-noitems でアイテムを落とさない
+	if (!ItemClass || FParse::Param(FCommandLine::Get(), TEXT("noitems")) || DropRandom.FRand() >= ItemDropRate)
 	{
 		return;
 	}
-	// A（ボール追加）/ S（分裂）/ P（貫通）をランダムに
-	const int32 TypeIndex = DropRandom.RandRange(0, 2);
+	// A（ボール追加）/ S（分裂）/ P（貫通）/ M（5個発射）をランダムに
+	const int32 TypeIndex = DropRandom.RandRange(0, 3);
 	if (ABreakoutAddBallItem* Item = GetWorld()->SpawnActorDeferred<ABreakoutAddBallItem>(ItemClass, GetActorTransform()))
 	{
 		Item->ItemType = static_cast<EBreakoutItemType>(TypeIndex);
@@ -173,14 +174,13 @@ void ABreakoutBlock::Break()
 {
 	if (ABreakoutGameManager* GM = Cast<ABreakoutGameManager>(UGameplayStatics::GetActorOfClass(this, ABreakoutGameManager::StaticClass())))
 	{
-		GM->AddScore(100);
 		GM->AddBrokenBlockNum();
-		GM->RequestShake(28.0f, 0.15f);
-	}
-	SpawnDebris();
-	if (BreakSound)
-	{
-		UGameplayStatics::PlaySound2D(this, BreakSound, 1.0f, FMath::FRandRange(0.9f, 1.15f));
+		GM->OnBlockBroken(GetActorLocation(), GetBaseColor());
+		if (BreakSound)
+		{
+			// コンボが増えるほど音が高くなる
+			UGameplayStatics::PlaySound2D(this, BreakSound, 1.0f, GM->GetComboPitch());
+		}
 	}
 	DropItem();
 	Destroy();

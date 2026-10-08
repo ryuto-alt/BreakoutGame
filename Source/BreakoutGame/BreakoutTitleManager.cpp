@@ -105,9 +105,9 @@ void ABreakoutTitleManager::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
 
-	// 録画用：2秒後に自動で Space を押す
+	// 録画用：1秒後に自動で Space を押す
 	ElapsedTime += DeltaSeconds;
-	if (bAutoPlay && ElapsedTime >= 2.0f)
+	if (bAutoPlay && ElapsedTime >= 1.0f)
 	{
 		StartGame();
 	}

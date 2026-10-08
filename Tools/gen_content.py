@@ -89,7 +89,10 @@ def make_block_material():
     p.set_editor_property("default_value", unreal.LinearColor(1.0, 1.0, 1.0, 1.0))
     mel.connect_material_property(p, "", unreal.MaterialProperty.MP_BASE_COLOR)
     mul = mel.create_material_expression(mat, unreal.MaterialExpressionMultiply, -300, 200)
-    mul.set_editor_property("const_b", 1.0)
+    glow = mel.create_material_expression(mat, unreal.MaterialExpressionScalarParameter, -600, 250)
+    glow.set_editor_property("parameter_name", "Glow")
+    glow.set_editor_property("default_value", 2.0)
+    mel.connect_material_expressions(glow, "", mul, "B")
     mat.set_editor_property("shading_model", unreal.MaterialShadingModel.MSM_UNLIT)
     mel.connect_material_expressions(p, "", mul, "A")
     mel.connect_material_property(mul, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
@@ -99,13 +102,14 @@ def make_block_material():
     return mat
 
 
-def make_material_instance(name, parent, color):
+def make_material_instance(name, parent, color, glow=1.0):
     """BlockMaterial の色違い（背景・壁用）"""
     path = "/Game/Materials/" + name
     recreate(path)
     mic = asset_tools.create_asset(name, "/Game/Materials", unreal.MaterialInstanceConstant, unreal.MaterialInstanceConstantFactoryNew())
     mic.set_editor_property("parent", parent)
     mel.set_material_instance_vector_parameter_value(mic, "BaseColor", unreal.LinearColor(*color))
+    mel.set_material_instance_scalar_parameter_value(mic, "Glow", glow)
     mel.update_material_instance(mic)
     eal.save_loaded_asset(mic)
     log("created material instance " + path)
@@ -137,20 +141,29 @@ def import_sound(name, filename, looping=False):
 # 6 列（Y = -1250, -750, ... , 1250）。数字 = Hp、# = 壊れないブロック、. = なし。上の行から並べる
 STAGES = {
     "Level1": dict(
-        stage="STAGE 1", speed=1000.0, next="Level2", z_top=3900,
-        rows=["..11..",
-              ".1221.",
-              "111111"]),
+        stage="STAGE 1", speed=1600.0, next="Level2", z_top=4300,
+        rows=["111111",
+              "122221",
+              "1.11.1",
+              "111111",
+              "1.22.1"]),
     "Level2": dict(
-        stage="STAGE 2", speed=1150.0, next="Level3", z_top=4300,
+        stage="STAGE 2", speed=1800.0, next="Level3", z_top=4400,
         rows=["#2222#",
+              "1.11.1",
+              "2#11#2",
+              "111111",
               "1.##.1",
-              "212212"]),
+              "221122"]),
     "Level3": dict(
-        stage="STAGE 3", speed=1300.0, next="TitleLevel", z_top=4500,
-        rows=["..44..",
-              ".3##3.",
-              "225522"]),
+        stage="STAGE 3", speed=2000.0, next="TitleLevel", z_top=4500,
+        rows=["354453",
+              "2#22#2",
+              "113311",
+              ".2##2.",
+              "224422",
+              "1.11.1",
+              "111111"]),
 }
 EXPOSURE_LIGHT = 6.0
 EXPOSURE_FIXED = 1.0
@@ -210,7 +223,11 @@ def build_level(name, assets, setup_extra=None, game_mode="GameMode"):
     pps.set_editor_property("override_auto_exposure_max_brightness", True)
     pps.set_editor_property("auto_exposure_max_brightness", EXPOSURE_FIXED)
     pps.set_editor_property("override_bloom_intensity", True)
-    pps.set_editor_property("bloom_intensity", 0.35)
+    pps.set_editor_property("bloom_intensity", 3.2)
+    pps.set_editor_property("override_bloom_threshold", True)
+    pps.set_editor_property("bloom_threshold", 1.3)
+    pps.set_editor_property("override_vignette_intensity", True)
+    pps.set_editor_property("vignette_intensity", 0.5)
     ppv.set_editor_property("settings", pps)
     spawn(unreal.SkyAtmosphere, (0, 0, 0), label="SkyAtmosphere", folder="Lighting")
     sky = spawn(unreal.SkyLight, (0, 0, 2000), label="SkyLight", folder="Lighting")
@@ -218,7 +235,16 @@ def build_level(name, assets, setup_extra=None, game_mode="GameMode"):
     sky.light_component.set_editor_property("mobility", unreal.ComponentMobility.MOVABLE)
 
     # 暗い背景（フィールドの奥。当たり判定なし）
-    spawn_cube("Backdrop", (300, 0, 2550), (1, 120, 70), folder="Backdrop", material=assets["backdrop"], collision="NoCollision")
+    bd = spawn_cube("Backdrop", (300, 0, 2550), (1, 120, 70), folder="Backdrop", material=assets["backdrop"], collision="NoCollision")
+    bd.set_editor_property("tags", ["Backdrop"])
+    # 背景の格子（横線は GameManager が下へ流す、縦線は固定）
+    for i in range(15):
+        ln = spawn_cube("GridH_%d" % i, (240, 0, -100 + i * 400), (0.2, 120, 0.06), folder="Backdrop", material=assets["line"], collision="NoCollision")
+        ln.set_editor_property("tags", ["BGLine"])
+        # 実行中に動かすので Movable にする（Static のままだと毎フレーム警告が出る）
+        ln.static_mesh_component.set_mobility(unreal.ComponentMobility.MOVABLE)
+    for i in range(-10, 11):
+        spawn_cube("GridV_%d" % i, (240, i * 500, 2550), (0.2, 0.06, 70), folder="Backdrop", material=assets["line"], collision="NoCollision")
 
     # 外壁（内側は Y -1500..1500、Z 50..5050）
     wall = assets["wall"]
@@ -248,8 +274,9 @@ def main():
 
     # マテリアルとサウンド
     block_mat = make_block_material()
-    backdrop_mat = make_material_instance("BackdropMaterial", block_mat, (0.012, 0.016, 0.05, 1.0))
-    wall_mat = make_material_instance("WallMaterial", block_mat, (0.08, 0.35, 0.9, 1.0))
+    backdrop_mat = make_material_instance("BackdropMaterial", block_mat, (0.012, 0.016, 0.05, 1.0), 1.0)
+    wall_mat = make_material_instance("WallMaterial", block_mat, (0.08, 0.35, 0.9, 1.0), 2.4)
+    line_mat = make_material_instance("GridLineMaterial", block_mat, (0.08, 0.2, 0.9, 1.0), 1.5)
     snd = {
         "knock": import_sound("Breakout_SE_Knock", "Breakout_SE_Knock.wav"),
         "bgm": import_sound("Breakout_BGM", "Breakout_BGM.wav", looping=True),
@@ -257,6 +284,8 @@ def main():
         "item": import_sound("Breakout_SE_Item", "Breakout_SE_Item.wav"),
         "gameover": import_sound("Breakout_SE_GameOver", "Breakout_SE_GameOver.wav"),
         "clear": import_sound("Breakout_SE_Clear", "Breakout_SE_Clear.wav"),
+        "fever": import_sound("Breakout_SE_Fever", "Breakout_SE_Fever.wav"),
+        "launch": import_sound("Breakout_SE_Launch", "Breakout_SE_Launch.wav"),
     }
 
     # Blueprint（C++ クラスの子）。GameInstance は DefaultEngine.ini で起動時に読まれるため、あるときは作り直さない
@@ -286,6 +315,9 @@ def main():
     cdo(gm).set_editor_property("bgm_sound", snd["bgm"])
     cdo(gm).set_editor_property("clear_sound", snd["clear"])
     cdo(gm).set_editor_property("game_over_sound", snd["gameover"])
+    cdo(gm).set_editor_property("fever_sound", snd["fever"])
+    cdo(gm).set_editor_property("launch_sound", snd["launch"])
+    cdo(gm).set_editor_property("effect_material", block_mat)
     for bp in (paddle, ball, block, item, gm):
         compile_save(bp)
     cdo(gamemode).set_editor_property("default_pawn_class", paddle.generated_class())
@@ -296,6 +328,7 @@ def main():
         "TitleGameMode": native("BreakoutTitleGameMode"),
         "backdrop": backdrop_mat,
         "wall": wall_mat,
+        "line": line_mat,
     }
     block_cls = block.generated_class()
     gm_cls = gm.generated_class()

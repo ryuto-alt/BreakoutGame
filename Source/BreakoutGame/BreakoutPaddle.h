@@ -10,6 +10,7 @@ class UInputAction;
 class UInputMappingContext;
 class ABreakoutGameManager;
 class UMaterialInterface;
+class UMaterialInstanceDynamic;
 
 // プレイヤーが操作するパドル（スライドの「Paddle」）。BP の Paddle はこのクラスの子。
 UCLASS()
@@ -25,7 +26,7 @@ public:
 
 	// 左右の移動速度
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Paddle")
-	float Speed = 1000.0f;
+	float Speed = 2000.0f;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Input")
 	TObjectPtr<UInputMappingContext> InputMappingContext;
@@ -59,6 +60,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Paddle")
 	void DrawDebugTopSurfaceNormals() const;
 
+	// ボールが当たったときの、ぷるんと光る演出
+	void OnBallHit();
+
 	virtual void Tick(float DeltaSeconds) override;
 
 protected:
@@ -84,6 +88,9 @@ protected:
 	// クリア後の経過時間（自動で次のレベルへ進む用）
 	float ClearedTime = 0.0f;
 	float AutoAimOffset = 0.0f;
+	float HitFlash = 0.0f;
+	UPROPERTY(Transient)
+	TObjectPtr<UMaterialInstanceDynamic> PaddleMID;
 	void UpdateAutoPlay(float DeltaSeconds);
 
 	// アセットが未設定でも動くように、IA_Move / IMC_InGame 相当をその場で作る

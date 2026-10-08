@@ -22,6 +22,12 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Ball")
 	TObjectPtr<UStaticMeshComponent> Sphere;
 
+	// 残像（過去の位置に小さくなっていく球を置く）
+	static constexpr int32 NumTrail = 6;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Ball")
+	TArray<TObjectPtr<UStaticMeshComponent>> Trail;
+
 	// 移動方向（Y=横、Z=縦）
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ball")
 	FVector Direction = FVector(0.0f, 1.0f, 1.0f);
@@ -72,4 +78,9 @@ protected:
 	TObjectPtr<UMaterialInstanceDynamic> MaterialInstance;
 
 	float PierceTimeLeft = 0.0f;
+
+	TArray<FVector> TrailPositions;
+	float SparkCooldown = 0.0f;
+	TWeakObjectPtr<class ABreakoutGameManager> GameManager;
+	bool bWasFever = false;
 };

@@ -26,5 +26,17 @@ protected:
 	UPROPERTY()
 	TObjectPtr<UTextBlock> ScoreTextBox;
 
+	// 画面の左右に出すコンボ・FEVER、中央に出すステージ開始の演出
+	UPROPERTY()
+	TObjectPtr<UTextBlock> ComboTextBox;
+
+	UPROPERTY()
+	TObjectPtr<UTextBlock> FeverTextBox;
+
+	UPROPERTY()
+	TObjectPtr<UTextBlock> IntroTextBox;
+
+	float Elapsed = 0.0f;
+
 	TWeakObjectPtr<ABreakoutGameManager> GameManager;
 };

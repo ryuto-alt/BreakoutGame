@@ -49,7 +49,7 @@ def triangle(phase):
 
 
 def bgm():
-    bpm = 120
+    bpm = 150  # はやめのテンポ（ハイパー）
     beat = 60.0 / bpm
     bars = 8
     total = int(RATE * beat * 4 * bars)
@@ -153,6 +153,34 @@ def clear():
     return tone_seq([(72, 0.14), (72, 0.14), (72, 0.14), (76, 0.2), (79, 0.2), (84, 0.7)], "square", decay=3.0, vol=0.28)
 
 
+def fever():
+    # FEVER 開始：上へ駆け上がるスイープ + 和音
+    n = int(RATE * 0.9)
+    out = []
+    for i in range(n):
+        t = i / RATE
+        f = 300 * (2.0 ** (t * 3.0))
+        env = min(1.0, t / 0.01) * (1.0 - t / 0.9) ** 0.7
+        v = square(f * t * 0.5, 0.5) * 0.25 + math.sin(2 * math.pi * f * t) * 0.25
+        out.append(v * env)
+    return out
+
+
+def launch():
+    # 発射のヒュッという音：高くなるノイズ
+    rnd = random.Random(11)
+    n = int(RATE * 0.28)
+    out = []
+    prev = 0.0
+    for i in range(n):
+        t = i / RATE
+        k = 0.05 + 0.6 * (t / 0.28)
+        prev += k * ((rnd.random() * 2 - 1) - prev)
+        env = min(1.0, t / 0.01) * (1.0 - t / 0.28)
+        out.append(prev * env * 0.9)
+    return out
+
+
 if __name__ == "__main__":
     write_wav("Breakout_SE_Knock.wav", knock())
     write_wav("Breakout_BGM.wav", bgm())
@@ -160,3 +188,5 @@ if __name__ == "__main__":
     write_wav("Breakout_SE_Item.wav", item())
     write_wav("Breakout_SE_GameOver.wav", gameover())
     write_wav("Breakout_SE_Clear.wav", clear())
+    write_wav("Breakout_SE_Fever.wav", fever())
+    write_wav("Breakout_SE_Launch.wav", launch())
