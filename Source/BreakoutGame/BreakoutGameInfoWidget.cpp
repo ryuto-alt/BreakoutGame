@@ -39,7 +39,7 @@ TSharedRef<SWidget> UBreakoutGameInfoWidget::RebuildWidget()
 		// 左上 / 上中央 / 右上
 		LeftBallTextBox = AddInfoText(WidgetTree, Root, TEXT("LeftBallTextBox"), TEXT("LeftBall : 0"), 34, FAnchors(0.0f, 0.0f), FVector2D(0.0f, 0.0f), FVector2D(20.0f, 14.0f), FLinearColor::White);
 		StageTextBox = AddInfoText(WidgetTree, Root, TEXT("StageTextBox"), TEXT("STAGE 1"), 34, FAnchors(0.5f, 0.0f), FVector2D(0.5f, 0.0f), FVector2D(0.0f, 14.0f), FLinearColor(1.0f, 0.9f, 0.3f));
-		ComboTextBox = AddInfoText(WidgetTree, Root, TEXT("ComboTextBox"), TEXT("COMBO"), 64, FAnchors(0.84f, 0.5f), FVector2D(0.5f, 0.5f), FVector2D(0.0f, -60.0f), FLinearColor(1.0f, 0.85f, 0.2f));
+		ComboTextBox = AddInfoText(WidgetTree, Root, TEXT("ComboTextBox"), TEXT("COMBO"), 64, FAnchors(0.835f, 0.5f), FVector2D(0.5f, 0.5f), FVector2D(0.0f, -60.0f), FLinearColor(1.0f, 0.85f, 0.2f));
 		ComboTextBox->SetJustification(ETextJustify::Center);
 		ComboTextBox->SetVisibility(ESlateVisibility::Collapsed);
 		// FEVER!! は画面上部の中央に大きく（黒い縁取りと影つき）
@@ -94,8 +94,9 @@ void UBreakoutGameInfoWidget::NativeTick(const FGeometry& MyGeometry, float InDe
 				ComboTextBox->SetVisibility(ESlateVisibility::HitTestInvisible);
 				ComboTextBox->SetText(FText::FromString(FString::Printf(TEXT("COMBO\nx%d"), Combo)));
 				// コンボが多いほど大きく、増えた瞬間にぽんと弾む
-				const float Grow = 1.0f + 0.9f * FMath::Clamp(Combo / 60.0f, 0.0f, 1.0f);
-				const float Pop = Grow * (1.0f + 0.7f * FMath::Exp(-GameManager->ComboPopAge * 9.0f));
+				// 右の余白からはみ出さないよう、最大でも約1.7倍に抑える
+				const float Grow = 1.0f + 0.3f * FMath::Clamp(Combo / 40.0f, 0.0f, 1.0f);
+				const float Pop = Grow * (1.0f + 0.3f * FMath::Exp(-GameManager->ComboPopAge * 9.0f));
 				ComboTextBox->SetRenderScale(FVector2D(Pop, Pop));
 				FLinearColor ComboColor = FMath::Lerp(FLinearColor(1.0f, 0.85f, 0.2f), FLinearColor(1.0f, 0.3f, 0.2f), FMath::Clamp(Combo / 40.0f, 0.0f, 1.0f));
 				// 途切れるまでの残り時間に合わせて薄くなる
