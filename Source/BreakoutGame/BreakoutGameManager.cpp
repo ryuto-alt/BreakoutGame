@@ -117,6 +117,19 @@ void ABreakoutGameManager::Tick(float DeltaSeconds)
 	// ステージ開始の演出、コンボ・クリアの経過時間
 	IntroElapsed += RealDelta;
 	ComboPopAge += RealDelta;
+	if (bFever)
+	{
+		FeverAge += RealDelta;
+	}
+	// 一定時間ブロックを壊さないとコンボが途切れる
+	if (Combo > 0 && !bIsCleared && !bIsGameOver)
+	{
+		ComboTimeLeft -= RealDelta;
+		if (ComboTimeLeft <= 0.0f)
+		{
+			ResetCombo();
+		}
+	}
 	if (bIsCleared)
 	{
 		ClearedElapsed += RealDelta;
@@ -392,6 +405,13 @@ void ABreakoutGameManager::EndFever()
 	}
 }
 
+void ABreakoutGameManager::ResetCombo()
+{
+	Combo = 0;
+	ComboTimeLeft = 0.0f;
+	EndFever();
+}
+
 void ABreakoutGameManager::MissCount()
 {
 	// クリア後に落ちたボールは数えない（次のレベルへ持ち越す）
@@ -400,9 +420,11 @@ void ABreakoutGameManager::MissCount()
 		--InGameBallNum;
 		UE_LOG(LogTemp, Log, TEXT("MissCount : InGameBallNum = %d, LeftBallNum = %d"), InGameBallNum, LeftBallNum);
 
-		// ボールを落としたらコンボが途切れる
-		Combo = 0;
-		EndFever();
+		// 場のボールがすべてなくなったらコンボが途切れる（1個落としただけでは続く）
+		if (InGameBallNum <= 0)
+		{
+			ResetCombo();
+		}
 
 		// 場にも残りにもボールがなければゲームオーバー
 		if (LeftBallNum <= 0 && InGameBallNum <= 0)
@@ -613,6 +635,7 @@ void ABreakoutGameManager::OnBlockBroken(const FVector& Location, const FLinearC
 	UWorld* World = GetWorld();
 	++Combo;
 	ComboPopAge = 0.0f;
+	ComboTimeLeft = ComboTimeout;
 
 	// スコアはコンボ倍率つき（10 コンボごとに +1 倍）
 	const int32 Multiplier = 1 + Combo / 10;
@@ -658,6 +681,7 @@ void ABreakoutGameManager::OnBlockBroken(const FVector& Location, const FLinearC
 	if (!bFever && Combo >= FeverCombo)
 	{
 		bFever = true;
+		FeverAge = 0.0f;
 		UE_LOG(LogTemp, Log, TEXT("FEVER start combo=%d (%.1f s)"), Combo, GetWorld()->GetTimeSeconds());
 		if (FeverSound)
 		{

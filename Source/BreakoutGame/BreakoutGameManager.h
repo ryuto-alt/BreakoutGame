@@ -153,6 +153,16 @@ public:
 	// コンボが増えてからの経過秒（HUD のポップ用）
 	float ComboPopAge = 10.0f;
 
+	// ブロックを壊さずにこの秒数が過ぎるとコンボが途切れる。残り時間は HUD で文字が薄くなって見える
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GameManager")
+	float ComboTimeout = 3.0f;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "GameManager")
+	float ComboTimeLeft = 0.0f;
+
+	// FEVER が始まってからの経過秒（HUD のドンと出る演出用）
+	float FeverAge = 0.0f;
+
 	// ステージ開始の演出（STAGE → READY → GO!!）の経過秒と長さ
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "GameManager")
 	float IntroElapsed = 0.0f;
@@ -236,6 +246,7 @@ protected:
 	void LaunchFan(const FVector& Location, int32 Count, float HalfAngleDeg);
 
 	void EndFever();
+	void ResetCombo();
 	void StartHitStop();
 	void UpdatePostProcess(float DeltaSeconds);
 	void UpdateBackground(float DeltaSeconds);

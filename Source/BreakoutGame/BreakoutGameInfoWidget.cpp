@@ -42,8 +42,16 @@ TSharedRef<SWidget> UBreakoutGameInfoWidget::RebuildWidget()
 		ComboTextBox = AddInfoText(WidgetTree, Root, TEXT("ComboTextBox"), TEXT("COMBO"), 64, FAnchors(0.84f, 0.5f), FVector2D(0.5f, 0.5f), FVector2D(0.0f, -60.0f), FLinearColor(1.0f, 0.85f, 0.2f));
 		ComboTextBox->SetJustification(ETextJustify::Center);
 		ComboTextBox->SetVisibility(ESlateVisibility::Collapsed);
-		FeverTextBox = AddInfoText(WidgetTree, Root, TEXT("FeverTextBox"), TEXT("FEVER!!"), 72, FAnchors(0.16f, 0.5f), FVector2D(0.5f, 0.5f), FVector2D(0.0f, -60.0f), FLinearColor::White);
+		// FEVER!! は画面上部の中央に大きく（黒い縁取りと影つき）
+		FeverTextBox = AddInfoText(WidgetTree, Root, TEXT("FeverTextBox"), TEXT("FEVER!!"), 96, FAnchors(0.5f, 0.0f), FVector2D(0.5f, 0.0f), FVector2D(0.0f, 90.0f), FLinearColor::White);
+		FeverTextBox->SetShadowOffset(FVector2D(5.0f, 5.0f));
 		FeverTextBox->SetVisibility(ESlateVisibility::Collapsed);
+		{
+			FSlateFontInfo FeverFont = FeverTextBox->GetFont();
+			FeverFont.OutlineSettings.OutlineSize = 4;
+			FeverFont.OutlineSettings.OutlineColor = FLinearColor(0.0f, 0.0f, 0.05f);
+			FeverTextBox->SetFont(FeverFont);
+		}
 		IntroTextBox = AddInfoText(WidgetTree, Root, TEXT("IntroTextBox"), TEXT("STAGE 1"), 120, FAnchors(0.5f, 0.5f), FVector2D(0.5f, 0.5f), FVector2D(0.0f, -80.0f), FLinearColor::White);
 		IntroTextBox->SetVisibility(ESlateVisibility::Collapsed);
 		ScoreTextBox = AddInfoText(WidgetTree, Root, TEXT("ScoreTextBox"), TEXT("SCORE 0"), 34, FAnchors(1.0f, 0.0f), FVector2D(1.0f, 0.0f), FVector2D(-20.0f, 14.0f), FLinearColor::White);
@@ -85,9 +93,15 @@ void UBreakoutGameInfoWidget::NativeTick(const FGeometry& MyGeometry, float InDe
 			{
 				ComboTextBox->SetVisibility(ESlateVisibility::HitTestInvisible);
 				ComboTextBox->SetText(FText::FromString(FString::Printf(TEXT("COMBO\nx%d"), Combo)));
-				const float Pop = 1.0f + 0.7f * FMath::Exp(-GameManager->ComboPopAge * 9.0f);
+				// コンボが多いほど大きく、増えた瞬間にぽんと弾む
+				const float Grow = 1.0f + 0.9f * FMath::Clamp(Combo / 60.0f, 0.0f, 1.0f);
+				const float Pop = Grow * (1.0f + 0.7f * FMath::Exp(-GameManager->ComboPopAge * 9.0f));
 				ComboTextBox->SetRenderScale(FVector2D(Pop, Pop));
-				ComboTextBox->SetColorAndOpacity(FSlateColor(FMath::Lerp(FLinearColor(1.0f, 0.85f, 0.2f), FLinearColor(1.0f, 0.3f, 0.2f), FMath::Clamp(Combo / 40.0f, 0.0f, 1.0f))));
+				FLinearColor ComboColor = FMath::Lerp(FLinearColor(1.0f, 0.85f, 0.2f), FLinearColor(1.0f, 0.3f, 0.2f), FMath::Clamp(Combo / 40.0f, 0.0f, 1.0f));
+				// 途切れるまでの残り時間に合わせて薄くなる
+				const float TimeRatio = FMath::Clamp(GameManager->ComboTimeLeft / FMath::Max(GameManager->ComboTimeout, 0.1f), 0.0f, 1.0f);
+				ComboColor.A = 0.25f + 0.75f * TimeRatio;
+				ComboTextBox->SetColorAndOpacity(FSlateColor(ComboColor));
 			}
 			else
 			{
@@ -103,9 +117,14 @@ void UBreakoutGameInfoWidget::NativeTick(const FGeometry& MyGeometry, float InDe
 				FeverTextBox->SetVisibility(ESlateVisibility::HitTestInvisible);
 				const float Hue = FMath::Fmod(Elapsed * 1.5f, 1.0f);
 				FeverTextBox->SetColorAndOpacity(FSlateColor(FLinearColor::MakeFromHSV8(static_cast<uint8>(Hue * 255.0f), 255, 255)));
-				const float Pulse = 1.0f + 0.15f * FMath::Sin(Elapsed * 14.0f);
+				// 始まった瞬間はドンと大きく出て、すぐ小さく落ち着いてからは脈打つ
+				const float Slam = 1.0f + 1.4f * FMath::Exp(-GameManager->FeverAge * 7.0f);
+				const float Pulse = Slam * (1.0f + 0.1f * FMath::Sin(Elapsed * 14.0f));
 				FeverTextBox->SetRenderScale(FVector2D(Pulse, Pulse));
-				FeverTextBox->SetRenderTranslation(FVector2D(0.0f, FMath::Sin(Elapsed * 9.0f) * 8.0f));
+				FeverTextBox->SetRenderTranslation(FVector2D(0.0f, FMath::Sin(Elapsed * 9.0f) * 5.0f));
+				// 白と虹色を行き来する
+				const FLinearColor Rainbow = FLinearColor::MakeFromHSV8(static_cast<uint8>(Hue * 255.0f), 200, 255);
+				FeverTextBox->SetColorAndOpacity(FSlateColor(FMath::Lerp(FLinearColor::White, Rainbow, 0.5f + 0.5f * FMath::Sin(Elapsed * 8.0f))));
 			}
 			else
 			{
